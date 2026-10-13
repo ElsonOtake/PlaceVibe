@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PlaceVibe — Personal Spot & Cafe Visit Journal</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fdf8f6',
+              100: '#f2e8e5',
+              500: '#c2410c',
+              600: '#9a3412',
+              900: '#431407'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    .font-mono-nums {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased flex flex-col selection:bg-amber-100 selection:text-amber-900">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+          PV
+        </div>
+        <div>
+          <a href="#" class="text-xl font-bold tracking-tight text-slate-900 hover:text-amber-600 transition-colors">
+            PlaceVibe
+          </a>
+          <span class="hidden sm:inline-block text-xs text-slate-500 ml-2 border-l border-slate-200 pl-2">
+            Personal Spot & Cafe Journal
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button id="btnExportData" class="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span class="hidden sm:inline">Backup & Export</span>
+        </button>
+        <button id="btnNewVisit" class="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span>Log Visit</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Hero / Headline & Metrics Strip -->
+    <section class="space-y-6">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div class="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md mb-2 border border-amber-200/60">
+            <span>Personal Spot & Cafe Journal</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+            Your Memory Bank of Favorite Spots
+          </h1>
+          <p class="text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
+            Track cafes, bookstores, eateries and bars. Record candid pros, cons, and honest ratings so you always know where to return.
+          </p>
+        </div>
+      </div>
+
+      <!-- Quick Summary Metrics -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="statsGrid">
+        <div class="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="text-xs font-medium text-slate-500">Total Spots Logged</div>
+          <div class="text-2xl sm:text-3xl font-bold text-slate-900 font-mono-nums mt-1" id="statTotal">0</div>
+          <div class="text-[11px] text-slate-400 mt-1" id="statTotalSub">Saved in local storage</div>
+        </div>
+        <div class="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="text-xs font-medium text-slate-500">Top-Rated Spot</div>
+          <div class="text-base sm:text-lg font-bold text-slate-900 truncate mt-1" id="statTopName">—</div>
+          <div class="text-[11px] text-amber-600 font-semibold mt-1" id="statTopRating">★ 5.0 Rating</div>
+        </div>
+        <div class="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="text-xs font-medium text-slate-500">Most Frequent Category</div>
+          <div class="text-base sm:text-lg font-bold text-slate-900 truncate mt-1" id="statFrequentCat">—</div>
+          <div class="text-[11px] text-slate-400 mt-1" id="statFrequentCount">0 visits</div>
+        </div>
+        <div class="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="text-xs font-medium text-slate-500">Return Recommendation</div>
+          <div class="text-2xl sm:text-3xl font-bold text-emerald-600 font-mono-nums mt-1" id="statReturnRate">0%</div>
+          <div class="text-[11px] text-slate-400 mt-1" id="statReturnCount">0 of 0 spots worth returning</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Controls: Search, Filters, and Sorting -->
+    <section class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+        <!-- Live Search Input -->
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search spot name, neighborhood, pros, cons, or notes..."
+            class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
+          />
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+          <!-- Return Filter -->
+          <select id="returnFilterSelect" class="text-xs bg-slate-50 border border-slate-200 text-slate-800 font-semibold rounded-xl px-3 py-2.5 focus:outline-none cursor-pointer">
+            <option value="all">All Experiences</option>
+            <option value="return-yes">Would Return Only</option>
+            <option value="return-no">Won't Return</option>
+          </select>
+
+          <!-- Sort Dropdown -->
+          <div class="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+            <span class="font-medium">Sort:</span>
+            <select id="sortSelect" class="bg-transparent text-slate-800 font-semibold focus:outline-none text-xs cursor-pointer py-1">
+              <option value="date-desc">Most Recent</option>
+              <option value="date-asc">Oldest Visit</option>
+              <option value="rating-desc">Highest Rated</option>
+              <option value="rating-asc">Lowest Rated</option>
+              <option value="name-asc">Alphabetical (A-Z)</option>
+              <option value="name-desc">Alphabetical (Z-A)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Filter Tabs -->
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar" id="categoryFilterContainer">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- Cards Grid Container -->
+    <section>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Visits (<span id="resultsCount">0</span>)
+        </h2>
+      </div>
+
+      <div id="placesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Cards injected via JavaScript -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden text-center py-16 px-4 bg-white rounded-2xl border border-dashed border-slate-300">
+        <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        </div>
+        <h3 class="text-base font-semibold text-slate-900" id="emptyTitle">No spots found</h3>
+        <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto" id="emptyDesc">
+          Try clearing your search query or adjusting your category filter.
+        </p>
+        <button id="btnEmptyReset" class="mt-4 px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
+          Clear Filters
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-slate-200 bg-white py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div>PlaceVibe — Personal Spot & Cafe Tracker. Stored locally in your browser.</div>
+      <div class="flex items-center gap-4">
+        <button id="btnResetMockData" class="hover:text-slate-900 underline text-slate-400 text-[11px] cursor-pointer">Reset Sample Data</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Entry Modal (Add / Edit) -->
+  <div id="modalEntry" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-xl w-full p-6 shadow-2xl space-y-5 my-8 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900" id="modalTitle">Log a Spot Visit</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Rate the vibe, record honest pros & cons, and note details.</p>
+        </div>
+        <button id="modalCloseBtn" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="placeForm" class="space-y-4">
+        <input type="hidden" id="formEntryId" />
+
+        <!-- Name & Category -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Place or Franchise Name *</label>
+            <input type="text" id="formName" required placeholder="e.g., Blue Bottle Coffee" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Category *</label>
+            <select id="formCategory" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white">
+              <option value="Coffee Shop">Coffee Shop</option>
+              <option value="Bookstore">Bookstore</option>
+              <option value="Restaurant">Restaurant</option>
+              <option value="Bakery">Bakery</option>
+              <option value="Bar">Bar</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Location & Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Location / Neighborhood</label>
+            <input type="text" id="formLocation" placeholder="e.g. Hayes Valley, SF" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Date Visited *</label>
+            <input type="date" id="formDate" required class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
+          </div>
+        </div>
+
+        <!-- Rating & Price Range -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Overall Rating (1 - 5 Stars) *</label>
+            <div class="flex items-center gap-1.5" id="ratingStarPicker">
+              <!-- Rendered via JS -->
+            </div>
+            <input type="hidden" id="formRating" value="5" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Price Range</label>
+            <div class="flex items-center gap-1" id="priceRangePicker">
+              <button type="button" data-val="$" class="price-btn flex-1 py-1.5 text-xs font-semibold border rounded-md transition-colors cursor-pointer">$</button>
+              <button type="button" data-val="$$" class="price-btn flex-1 py-1.5 text-xs font-semibold border rounded-md transition-colors cursor-pointer">$$</button>
+              <button type="button" data-val="$$$" class="price-btn flex-1 py-1.5 text-xs font-semibold border rounded-md transition-colors cursor-pointer">$$$</button>
+              <button type="button" data-val="$$$$" class="price-btn flex-1 py-1.5 text-xs font-semibold border rounded-md transition-colors cursor-pointer">$$$$</button>
+            </div>
+            <input type="hidden" id="formPriceRange" value="$$" />
+          </div>
+        </div>
+
+        <!-- Would Return Toggle -->
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-semibold text-slate-900">Would you return to this spot?</div>
+            <div class="text-[11px] text-slate-500">Adds an instant recommendation tag to your journal</div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="formWouldReturn" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+          </label>
+        </div>
+
+        <!-- Pros Builder -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-emerald-800">Pros / What made it good</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="inputProText" placeholder="e.g. Great pour-over, Quiet workspace" class="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+            <button type="button" id="btnAddPro" class="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors cursor-pointer">Add</button>
+          </div>
+          <div id="prosListContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+        </div>
+
+        <!-- Cons Builder -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-rose-800">Cons / What could be better</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="inputConText" placeholder="e.g. No power outlets, Noisy music" class="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" />
+            <button type="button" id="btnAddCon" class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors cursor-pointer">Add</button>
+          </div>
+          <div id="consListContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+        </div>
+
+        <!-- Notes / Comments -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Notes & Observations</label>
+          <textarea id="formNotes" rows="3" placeholder="Order details, best tables, Wi-Fi passwords, or memorable atmosphere..." class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"></textarea>
+        </div>
+
+        <!-- Submit & Cancel -->
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button type="button" id="btnCancelEntry" class="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 transition-colors cursor-pointer">Cancel</button>
+          <button type="submit" class="px-5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors cursor-pointer">Save Visit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="modalDelete" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl space-y-4">
+      <div class="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      </div>
+      <div>
+        <h4 class="text-base font-bold text-slate-900">Delete this entry?</h4>
+        <p class="text-xs text-slate-500 mt-1" id="deleteTargetText">Are you sure you want to remove this visit?</p>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button id="btnCancelDelete" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-800 cursor-pointer">Cancel</button>
+        <button id="btnConfirmDelete" class="px-4 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backup & Export Modal -->
+  <div id="modalBackup" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-bold text-slate-900">Backup & Export Journal</h3>
+        <button id="btnCloseBackup" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p class="text-xs text-slate-600">
+        Your entries are saved automatically in your browser's local storage. You can also download a copy or restore past visits.
+      </p>
+      <div class="space-y-2">
+        <button id="btnDownloadJson" class="w-full text-left px-4 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-between text-xs font-semibold text-slate-800 cursor-pointer">
+          <span>Download JSON Backup</span>
+          <span class="text-slate-400 font-mono-nums" id="backupCountLabel">0 entries</span>
+        </button>
+        <label class="w-full text-left px-4 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-between text-xs font-semibold text-slate-800 cursor-pointer">
+          <span>Restore from JSON Backup</span>
+          <input type="file" id="fileImportJson" accept=".json" class="hidden" />
+          <span class="text-amber-600">Select File</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script>
+    // Initial Mock Entries
+    const INITIAL_DATA = [
+      {
+        id: 'pv-mock-1',
+        name: 'Blue Bottle Coffee',
+        category: 'Coffee Shop',
+        location: 'Hayes Valley, San Francisco',
+        rating: 5,
+        pros: [
+          'Flawless single-origin pour-over (Bella Donovan)',
+          'Minimalist natural wood interior & warm light',
+          'Knowledgeable, welcoming baristas'
+        ],
+        cons: [
+          'Very limited power outlets near seating',
+          'Pastry selection sells out before noon',
+          'Pricey specialty drinks ($7.50)'
+        ],
+        dateVisited: '2026-10-08',
+        notes: 'Came for a morning deep work sprint. The Hayes Valley espresso is consistently top-tier. Arrive right before 9 AM to snag the corner window bench.',
+        wouldReturn: true,
+        priceRange: '$$$',
+        createdAt: 1728374400000,
+        updatedAt: 1728374400000
+      },
+      {
+        id: 'pv-mock-2',
+        name: 'Livraria Cultura & Mezzanine',
+        category: 'Bookstore',
+        location: 'Paulista Avenue, Cultural District',
+        rating: 5,
+        pros: [
+          'Endless multi-tier wooden reading bleachers',
+          'Curated indie fiction & design monographs',
+          'Quiet workspace etiquette observed by visitors',
+          'Quiet cafe with artisanal chamomile & herbal teas'
+        ],
+        cons: [
+          'High foot traffic on Saturday afternoons',
+          'Checkout lines can be slow during peak hours'
+        ],
+        dateVisited: '2026-10-02',
+        notes: 'A true city sanctuary. Spent two peaceful hours reviewing typography history. Perfect natural diffused light from the glass atrium ceiling.',
+        wouldReturn: true,
+        priceRange: '$$',
+        createdAt: 1727856000000,
+        updatedAt: 1727856000000
+      },
+      {
+        id: 'pv-mock-3',
+        name: 'Osteria Stella Di Notte',
+        category: 'Restaurant',
+        location: 'North End Waterfront',
+        rating: 4,
+        pros: [
+          'Handmade cacio e pepe and squid ink tagliolini',
+          'Charming candlelit patio with autumn heaters',
+          'Attentive sommelier paired an exceptional Sangiovese'
+        ],
+        cons: [
+          'Acoustics make it slightly noisy inside during dinner rush',
+          'Strict 90-minute table turnover limit'
+        ],
+        dateVisited: '2026-09-24',
+        notes: 'Great dinner date spot. Pasta was cooked to genuine al dente perfection. Book at least a week ahead for an outdoor patio seat.',
+        wouldReturn: true,
+        priceRange: '$$$$',
+        createdAt: 1727164800000,
+        updatedAt: 1727164800000
+      },
+      {
+        id: 'pv-mock-4',
+        name: 'The Rusty Taphouse',
+        category: 'Bar',
+        location: 'Warehouse District',
+        rating: 2,
+        pros: [
+          'Generous rotating draft list of local IPAs and ciders',
+          'Trivia night on Tuesdays'
+        ],
+        cons: [
+          'Sticky tables that take forever to get wiped down',
+          'Overbearing bass music makes conversation impossible',
+          'Lukewarm bar fries with stale dipping sauce'
+        ],
+        dateVisited: '2026-09-15',
+        notes: 'Stopped by for casual Friday drinks with colleagues. Left after 40 minutes because we were shouting across a four-top table. Would not return unless dragged to trivia.',
+        wouldReturn: false,
+        priceRange: '$$',
+        createdAt: 1726387200000,
+        updatedAt: 1726387200000
+      },
+      {
+        id: 'pv-mock-5',
+        name: 'Flour & Stone Hearth',
+        category: 'Bakery',
+        location: 'Maple Street Market',
+        rating: 5,
+        pros: [
+          'Naturally leavened sourdough country loaves with blistered crust',
+          'Cardamom morning buns that shatter with crispness',
+          'Warm counter service and generous sample tastings'
+        ],
+        cons: [
+          'Line wraps around the sidewalk by 8:30 AM',
+          'Takeout only; no indoor seating available'
+        ],
+        dateVisited: '2026-10-11',
+        notes: 'Arrived at 8:15 AM on Sunday. The fresh sourdough stayed soft with crunchy crust for 4 days. Absolutely worth the 20-minute morning queue.',
+        wouldReturn: true,
+        priceRange: '$',
+        createdAt: 1728633600000,
+        updatedAt: 1728633600000
+      }
+    ];
+
+    const STORAGE_KEY = 'placevibe_visits_v1';
+
+    let places = [];
+    let currentCategoryFilter = 'All';
+    let currentReturnFilter = 'all';
+    let currentSort = 'date-desc';
+    let currentSearch = '';
+    let deleteTargetId = null;
+
+    let tempPros = [];
+    let tempCons = [];
+
+    function init() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          places = JSON.parse(stored);
+        } catch (e) {
+          places = INITIAL_DATA;
+        }
+      } else {
+        places = INITIAL_DATA;
+        saveToStorage();
+      }
+
+      setupCategoryTabs();
+      setupRatingStarPicker();
+      setupPriceRangePicker();
+      bindEvents();
+      render();
+    }
+
+    function saveToStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(places));
+    }
+
+    const CATEGORIES = ['All', 'Coffee Shop', 'Bookstore', 'Restaurant', 'Bakery', 'Bar', 'Other'];
+
+    function setupCategoryTabs() {
+      const container = document.getElementById('categoryFilterContainer');
+      container.innerHTML = '';
+      CATEGORIES.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'category-tab px-3 py-1.5 font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer ' + 
+          (cat === currentCategoryFilter ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200');
+        btn.textContent = cat;
+        btn.addEventListener('click', () => {
+          currentCategoryFilter = cat;
+          document.querySelectorAll('.category-tab').forEach(b => {
+            b.className = 'category-tab px-3 py-1.5 font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200';
+          });
+          btn.className = 'category-tab px-3 py-1.5 font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer bg-slate-900 text-white shadow-sm';
+          render();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function setupRatingStarPicker() {
+      const container = document.getElementById('ratingStarPicker');
+      container.innerHTML = '';
+      for (let i = 1; i <= 5; i++) {
+        const star = document.createElement('button');
+        star.type = 'button';
+        star.className = 'star-btn p-1 text-slate-300 hover:text-amber-400 transition-colors cursor-pointer';
+        star.innerHTML = '<svg class="w-6 h-6 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+        star.addEventListener('click', () => {
+          setFormRating(i);
+        });
+        container.appendChild(star);
+      }
+      setFormRating(5);
+    }
+
+    function setFormRating(val) {
+      document.getElementById('formRating').value = val;
+      const stars = document.querySelectorAll('#ratingStarPicker .star-btn');
+      stars.forEach((star, index) => {
+        if (index < val) {
+          star.classList.remove('text-slate-300');
+          star.classList.add('text-amber-400');
+        } else {
+          star.classList.remove('text-amber-400');
+          star.classList.add('text-slate-300');
+        }
+      });
+    }
+
+    function setupPriceRangePicker() {
+      const btns = document.querySelectorAll('#priceRangePicker .price-btn');
+      btns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-val');
+          document.getElementById('formPriceRange').value = val;
+          updatePriceBtnStyles(val);
+        });
+      });
+      updatePriceBtnStyles('$$');
+    }
+
+    function updatePriceBtnStyles(selected) {
+      document.querySelectorAll('#priceRangePicker .price-btn').forEach(b => {
+        if (b.getAttribute('data-val') === selected) {
+          b.className = 'price-btn flex-1 py-1.5 text-xs font-semibold rounded-md border border-slate-900 bg-slate-900 text-white cursor-pointer';
+        } else {
+          b.className = 'price-btn flex-1 py-1.5 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer';
+        }
+      });
+    }
+
+    function bindEvents() {
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        currentSearch = e.target.value.toLowerCase().trim();
+        render();
+      });
+
+      document.getElementById('sortSelect').addEventListener('change', (e) => {
+        currentSort = e.target.value;
+        render();
+      });
+
+      document.getElementById('returnFilterSelect').addEventListener('change', (e) => {
+        currentReturnFilter = e.target.value;
+        render();
+      });
+
+      document.getElementById('btnNewVisit').addEventListener('click', () => {
+        openEntryModal();
+      });
+
+      document.getElementById('modalCloseBtn').addEventListener('click', closeEntryModal);
+      document.getElementById('btnCancelEntry').addEventListener('click', closeEntryModal);
+      document.getElementById('placeForm').addEventListener('submit', handleFormSubmit);
+
+      document.getElementById('btnAddPro').addEventListener('click', addProFromInput);
+      document.getElementById('inputProText').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addProFromInput();
+        }
+      });
+
+      document.getElementById('btnAddCon').addEventListener('click', addConFromInput);
+      document.getElementById('inputConText').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addConFromInput();
+        }
+      });
+
+      document.getElementById('btnCancelDelete').addEventListener('click', () => {
+        document.getElementById('modalDelete').classList.add('hidden');
+        document.getElementById('modalDelete').classList.remove('flex');
+        deleteTargetId = null;
+      });
+      document.getElementById('btnConfirmDelete').addEventListener('click', confirmDelete);
+
+      document.getElementById('btnEmptyReset').addEventListener('click', () => {
+        currentSearch = '';
+        currentCategoryFilter = 'All';
+        currentReturnFilter = 'all';
+        document.getElementById('searchInput').value = '';
+        document.getElementById('returnFilterSelect').value = 'all';
+        setupCategoryTabs();
+        render();
+      });
+
+      document.getElementById('btnExportData').addEventListener('click', () => {
+        document.getElementById('backupCountLabel').textContent = places.length + ' entries';
+        document.getElementById('modalBackup').classList.remove('hidden');
+        document.getElementById('modalBackup').classList.add('flex');
+      });
+      document.getElementById('btnCloseBackup').addEventListener('click', () => {
+        document.getElementById('modalBackup').classList.add('hidden');
+        document.getElementById('modalBackup').classList.remove('flex');
+      });
+
+      document.getElementById('btnDownloadJson').addEventListener('click', () => {
+        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(places, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute('href', dataStr);
+        dlAnchor.setAttribute('download', 'placevibe_export_' + new Date().toISOString().slice(0, 10) + '.json');
+        dlAnchor.click();
+      });
+
+      document.getElementById('fileImportJson').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const imported = JSON.parse(event.target.result);
+            if (Array.isArray(imported)) {
+              places = imported;
+              saveToStorage();
+              render();
+              document.getElementById('modalBackup').classList.add('hidden');
+              document.getElementById('modalBackup').classList.remove('flex');
+              alert('Successfully restored ' + imported.length + ' entries!');
+            }
+          } catch (err) {
+            alert('Invalid JSON file format.');
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      document.getElementById('btnResetMockData').addEventListener('click', () => {
+        if (confirm('Reset to initial sample entries? Any custom entries will be replaced.')) {
+          places = INITIAL_DATA;
+          saveToStorage();
+          render();
+        }
+      });
+    }
+
+    function addProFromInput() {
+      const input = document.getElementById('inputProText');
+      const val = input.value.trim();
+      if (val) {
+        tempPros.push(val);
+        input.value = '';
+        renderProsList();
+      }
+    }
+
+    function addConFromInput() {
+      const input = document.getElementById('inputConText');
+      const val = input.value.trim();
+      if (val) {
+        tempCons.push(val);
+        input.value = '';
+        renderConsList();
+      }
+    }
+
+    function renderProsList() {
+      const container = document.getElementById('prosListContainer');
+      container.innerHTML = '';
+      tempPros.forEach((item, idx) => {
+        const chip = document.createElement('span');
+        chip.className = 'inline-flex items-center gap-1 text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md';
+        chip.innerHTML = '<span>+ ' + escapeHtml(item) + '</span><button type="button" class="text-emerald-500 hover:text-emerald-700 font-bold ml-1 cursor-pointer">&times;</button>';
+        chip.querySelector('button').addEventListener('click', () => {
+          tempPros.splice(idx, 1);
+          renderProsList();
+        });
+        container.appendChild(chip);
+      });
+    }
+
+    function renderConsList() {
+      const container = document.getElementById('consListContainer');
+      container.innerHTML = '';
+      tempCons.forEach((item, idx) => {
+        const chip = document.createElement('span');
+        chip.className = 'inline-flex items-center gap-1 text-[11px] font-medium bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-md';
+        chip.innerHTML = '<span>- ' + escapeHtml(item) + '</span><button type="button" class="text-rose-500 hover:text-rose-700 font-bold ml-1 cursor-pointer">&times;</button>';
+        chip.querySelector('button').addEventListener('click', () => {
+          tempCons.splice(idx, 1);
+          renderConsList();
+        });
+        container.appendChild(chip);
+      });
+    }
+
+    function openEntryModal(entry = null) {
+      const modal = document.getElementById('modalEntry');
+      const title = document.getElementById('modalTitle');
+      const today = new Date().toISOString().slice(0, 10);
+
+      if (entry) {
+        title.textContent = 'Edit Visit: ' + entry.name;
+        document.getElementById('formEntryId').value = entry.id;
+        document.getElementById('formName').value = entry.name;
+        document.getElementById('formCategory').value = entry.category;
+        document.getElementById('formLocation').value = entry.location || '';
+        document.getElementById('formDate').value = entry.dateVisited || today;
+        document.getElementById('formNotes').value = entry.notes || '';
+        document.getElementById('formWouldReturn').checked = !!entry.wouldReturn;
+        setFormRating(entry.rating || 5);
+        const pr = entry.priceRange || '$$';
+        document.getElementById('formPriceRange').value = pr;
+        updatePriceBtnStyles(pr);
+        tempPros = [...(entry.pros || [])];
+        tempCons = [...(entry.cons || [])];
+      } else {
+        title.textContent = 'Log a Spot Visit';
+        document.getElementById('formEntryId').value = '';
+        document.getElementById('formName').value = '';
+        document.getElementById('formCategory').value = 'Coffee Shop';
+        document.getElementById('formLocation').value = '';
+        document.getElementById('formDate').value = today;
+        document.getElementById('formNotes').value = '';
+        document.getElementById('formWouldReturn').checked = true;
+        setFormRating(5);
+        document.getElementById('formPriceRange').value = '$$';
+        updatePriceBtnStyles('$$');
+        tempPros = [];
+        tempCons = [];
+      }
+
+      renderProsList();
+      renderConsList();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeEntryModal() {
+      const modal = document.getElementById('modalEntry');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('formEntryId').value;
+      const name = document.getElementById('formName').value.trim();
+      const category = document.getElementById('formCategory').value;
+      const location = document.getElementById('formLocation').value.trim();
+      const dateVisited = document.getElementById('formDate').value;
+      const rating = parseInt(document.getElementById('formRating').value, 10) || 5;
+      const priceRange = document.getElementById('formPriceRange').value;
+      const wouldReturn = document.getElementById('formWouldReturn').checked;
+      const notes = document.getElementById('formNotes').value.trim();
+
+      if (!name) return;
+
+      if (id) {
+        const idx = places.findIndex(p => p.id === id);
+        if (idx !== -1) {
+          places[idx] = {
+            ...places[idx],
+            name,
+            category,
+            location,
+            dateVisited,
+            rating,
+            priceRange,
+            wouldReturn,
+            pros: [...tempPros],
+            cons: [...tempCons],
+            notes,
+            updatedAt: Date.now()
+          };
+        }
+      } else {
+        const newEntry = {
+          id: 'pv-' + Date.now(),
+          name,
+          category,
+          location,
+          dateVisited,
+          rating,
+          priceRange,
+          wouldReturn,
+          pros: [...tempPros],
+          cons: [...tempCons],
+          notes,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        places.unshift(newEntry);
+      }
+
+      saveToStorage();
+      closeEntryModal();
+      render();
+    }
+
+    function openDeleteModal(id, name) {
+      deleteTargetId = id;
+      document.getElementById('deleteTargetText').textContent = 'Are you sure you want to delete "' + name + '"? This cannot be undone.';
+      const modal = document.getElementById('modalDelete');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function confirmDelete() {
+      if (!deleteTargetId) return;
+      places = places.filter(p => p.id !== deleteTargetId);
+      saveToStorage();
+      document.getElementById('modalDelete').classList.add('hidden');
+      document.getElementById('modalDelete').classList.remove('flex');
+      deleteTargetId = null;
+      render();
+    }
+
+    function render() {
+      updateMetrics();
+
+      let filtered = places.filter(p => {
+        if (currentCategoryFilter !== 'All' && p.category !== currentCategoryFilter) {
+          return false;
+        }
+
+        if (currentReturnFilter === 'return-yes' && !p.wouldReturn) return false;
+        if (currentReturnFilter === 'return-no' && p.wouldReturn) return false;
+
+        if (currentSearch) {
+          const matchName = (p.name || '').toLowerCase().includes(currentSearch);
+          const matchLoc = (p.location || '').toLowerCase().includes(currentSearch);
+          const matchNotes = (p.notes || '').toLowerCase().includes(currentSearch);
+          const matchPros = (p.pros || []).some(item => item.toLowerCase().includes(currentSearch));
+          const matchCons = (p.cons || []).some(item => item.toLowerCase().includes(currentSearch));
+          if (!matchName && !matchLoc && !matchNotes && !matchPros && !matchCons) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      filtered.sort((a, b) => {
+        if (currentSort === 'date-desc') return new Date(b.dateVisited) - new Date(a.dateVisited);
+        if (currentSort === 'date-asc') return new Date(a.dateVisited) - new Date(b.dateVisited);
+        if (currentSort === 'rating-desc') return (b.rating || 0) - (a.rating || 0);
+        if (currentSort === 'rating-asc') return (a.rating || 0) - (b.rating || 0);
+        if (currentSort === 'name-asc') return a.name.localeCompare(b.name);
+        if (currentSort === 'name-desc') return b.name.localeCompare(a.name);
+        return 0;
+      });
+
+      document.getElementById('resultsCount').textContent = filtered.length;
+
+      const grid = document.getElementById('placesGrid');
+      const emptyState = document.getElementById('emptyState');
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        grid.innerHTML = filtered.map(entry => createPlaceCardHtml(entry)).join('');
+
+        filtered.forEach(entry => {
+          const editBtn = document.getElementById('btnEdit-' + entry.id);
+          const delBtn = document.getElementById('btnDel-' + entry.id);
+          if (editBtn) editBtn.addEventListener('click', () => openEntryModal(entry));
+          if (delBtn) delBtn.addEventListener('click', () => openDeleteModal(entry.id, entry.name));
+        });
+      }
+    }
+
+    function updateMetrics() {
+      document.getElementById('statTotal').textContent = places.length;
+      document.getElementById('statTotalSub').textContent = places.length === 1 ? '1 visit recorded' : places.length + ' visits recorded';
+
+      if (places.length > 0) {
+        const sortedByRating = [...places].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        const top = sortedByRating[0];
+        document.getElementById('statTopName').textContent = top.name;
+        document.getElementById('statTopRating').textContent = '★ ' + top.rating + '.0 (' + top.category + ')';
+
+        const counts = {};
+        places.forEach(p => counts[p.category] = (counts[p.category] || 0) + 1);
+        let maxCat = '—';
+        let maxCount = 0;
+        for (const cat in counts) {
+          if (counts[cat] > maxCount) {
+            maxCount = counts[cat];
+            maxCat = cat;
+          }
+        }
+        document.getElementById('statFrequentCat').textContent = maxCat;
+        document.getElementById('statFrequentCount').textContent = maxCount + ' visit' + (maxCount === 1 ? '' : 's');
+
+        const returnCount = places.filter(p => p.wouldReturn).length;
+        const rate = Math.round((returnCount / places.length) * 100);
+        document.getElementById('statReturnRate').textContent = rate + '%';
+        document.getElementById('statReturnCount').textContent = returnCount + ' of ' + places.length + ' spots worth returning';
+      } else {
+        document.getElementById('statTopName').textContent = '—';
+        document.getElementById('statTopRating').textContent = 'No visits yet';
+        document.getElementById('statFrequentCat').textContent = '—';
+        document.getElementById('statFrequentCount').textContent = '0 visits';
+        document.getElementById('statReturnRate').textContent = '0%';
+        document.getElementById('statReturnCount').textContent = '0 spots recorded';
+      }
+    }
+
+    function createPlaceCardHtml(p) {
+      let starsHtml = '';
+      for (let i = 1; i <= 5; i++) {
+        if (i <= p.rating) {
+          starsHtml += '<svg class="w-4 h-4 fill-amber-400 text-amber-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+        } else {
+          starsHtml += '<svg class="w-4 h-4 text-slate-200" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+        }
+      }
+
+      const returnBadge = p.wouldReturn
+        ? '<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Would Return</span>'
+        : '<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/60 px-2 py-0.5 rounded-md"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>Wouldn\\\'t Return</span>';
+
+      let prosSection = '';
+      if (p.pros && p.pros.length > 0) {
+        prosSection = '<div class="space-y-1.5">' +
+          '<div class="text-[11px] font-bold text-emerald-800 tracking-wide uppercase">Pros</div>' +
+          '<ul class="space-y-1">' +
+          p.pros.map(item => '<li class="text-xs text-emerald-900 bg-emerald-50/70 border border-emerald-100 px-2.5 py-1 rounded-md flex items-start gap-1.5"><span class="text-emerald-600 font-bold shrink-0 mt-0.5">+</span><span>' + escapeHtml(item) + '</span></li>').join('') +
+          '</ul>' +
+          '</div>';
+      }
+
+      let consSection = '';
+      if (p.cons && p.cons.length > 0) {
+        consSection = '<div class="space-y-1.5">' +
+          '<div class="text-[11px] font-bold text-rose-800 tracking-wide uppercase">Cons</div>' +
+          '<ul class="space-y-1">' +
+          p.cons.map(item => '<li class="text-xs text-rose-900 bg-rose-50/70 border border-rose-100 px-2.5 py-1 rounded-md flex items-start gap-1.5"><span class="text-rose-500 font-bold shrink-0 mt-0.5">-</span><span>' + escapeHtml(item) + '</span></li>').join('') +
+          '</ul>' +
+          '</div>';
+      }
+
+      let notesSection = '';
+      if (p.notes) {
+        notesSection = '<div class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic leading-relaxed">' +
+          escapeHtml(p.notes) +
+          '</div>';
+      }
+
+      const priceBadge = p.priceRange ? '<span class="text-xs font-mono text-slate-500 font-semibold">' + p.priceRange + '</span>' : '';
+
+      return '<div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col justify-between space-y-4">' +
+        '<div class="space-y-2">' +
+          '<div class="flex items-start justify-between gap-2">' +
+            '<div>' +
+              '<h3 class="text-base font-bold text-slate-900 tracking-tight leading-snug">' + escapeHtml(p.name) + '</h3>' +
+              '<div class="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap">' +
+                '<span>' + escapeHtml(p.category) + '</span>' +
+                '<span aria-hidden="true">·</span>' +
+                '<span>' + escapeHtml(p.dateVisited) + '</span>' +
+                (p.location ? '<span aria-hidden="true">·</span><span class="truncate max-w-[140px]">' + escapeHtml(p.location) + '</span>' : '') +
+              '</div>' +
+            '</div>' +
+            '<div class="flex flex-col items-end gap-1.5 shrink-0">' +
+              returnBadge +
+              priceBadge +
+            '</div>' +
+          '</div>' +
+          '<div class="flex items-center gap-1.5 pt-1">' +
+            '<div class="flex items-center">' + starsHtml + '</div>' +
+            '<span class="text-xs font-bold text-slate-800 font-mono-nums">' + p.rating + '.0</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="space-y-3 flex-1">' +
+          prosSection +
+          consSection +
+          notesSection +
+        '</div>' +
+        '<div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">' +
+          '<div class="text-[11px] text-slate-400">Visit Journaled</div>' +
+          '<div class="flex items-center gap-2">' +
+            '<button id="btnEdit-' + p.id + '" class="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors font-medium cursor-pointer">Edit</button>' +
+            '<button id="btnDel-' + p.id + '" class="px-2.5 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-md transition-colors font-medium cursor-pointer">Delete</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

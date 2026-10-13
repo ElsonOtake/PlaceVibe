@@ -1,0 +1,6 @@
+{
+  "name": "PlaceVibe",
+  "description": "A personal journal for rating and tracking visits to spots like coffee shops, bookstores, and restaurants.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
