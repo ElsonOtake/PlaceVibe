@@ -1,0 +1,200 @@
+{
+  "entities": {
+    "Place": {
+      "title": "Place",
+      "description": "A personal journal entry recording a visit to a coffee shop, bookstore, restaurant, or spot.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Unique identifier for the place record."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Name of the place or franchise."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Coffee Shop", "Bookstore", "Restaurant", "Bakery", "Bar", "Other"],
+          "description": "Category of the visited venue."
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "Neighborhood or address of the place."
+        },
+        "formattedAddress": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "Full formatted address from Google Maps."
+        },
+        "googlePlaceId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "Google Maps Places identifier."
+        },
+        "googleMapsUrl": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "Direct Google Maps URL."
+        },
+        "googleRating": {
+          "type": "number",
+          "description": "Google Maps star rating (e.g. 4.6)."
+        },
+        "googleRatingCount": {
+          "type": "number",
+          "description": "Google Maps total review count."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Latitude coordinate."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude coordinate."
+        },
+        "website": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "Official venue website URL."
+        },
+        "editorialSummary": {
+          "type": "string",
+          "maxLength": 2048,
+          "description": "Editorial summary or description from Google Maps."
+        },
+        "rating": {
+          "type": "number",
+          "description": "Overall score rating from 1 to 5."
+        },
+        "pros": {
+          "type": "array",
+          "description": "Positive highlights or good points noted during visit."
+        },
+        "cons": {
+          "type": "array",
+          "description": "Downsides or areas that could be better."
+        },
+        "dateVisited": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "maxLength": 10,
+          "description": "Date the spot was visited in YYYY-MM-DD format."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Personal observations, reviews, orders, or tips."
+        },
+        "wouldReturn": {
+          "type": "boolean",
+          "description": "Whether the user would return or recommends the place."
+        },
+        "priceRange": {
+          "type": "string",
+          "enum": ["$", "$$", "$$$", "$$$$"],
+          "description": "Price level indication."
+        },
+        "familyId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Shared family namespace ID."
+        },
+        "allowedEmails": {
+          "type": "array",
+          "description": "List of user emails permitted to access this place."
+        },
+        "createdByUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the creator."
+        },
+        "createdByEmail": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Email address of the creator."
+        },
+        "createdByName": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Display name of the author."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the record was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the record was last updated."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "category",
+        "rating",
+        "dateVisited",
+        "wouldReturn",
+        "familyId",
+        "allowedEmails",
+        "createdByUid",
+        "createdByEmail",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FamilyConfig": {
+      "title": "FamilyConfig",
+      "description": "Configuration document holding shared access whitelist for Elson and his wife.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Identifier for the config document."
+        },
+        "ownerEmail": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Primary owner email (Elson)."
+        },
+        "wifeEmail": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Wife's email address."
+        },
+        "allowedEmails": {
+          "type": "array",
+          "description": "List of authorized emails who can access the journal."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last update."
+        }
+      },
+      "required": [
+        "id",
+        "ownerEmail",
+        "allowedEmails",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/places/{placeId}": {
+      "schema": "Place",
+      "description": "Collection of journaled place visits accessible by Elson and his wife."
+    },
+    "/family_config/{configId}": {
+      "schema": "FamilyConfig",
+      "description": "Shared configuration document listing authorized family members."
+    }
+  }
+}

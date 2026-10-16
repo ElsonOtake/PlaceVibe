@@ -1,0 +1,158 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Pillar 1 / Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Primitives
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isElson() {
+      return isVerifiedUser() &&
+        request.auth.token.email != null &&
+        request.auth.token.email.lower() == 'elsonotake@gmail.com';
+    }
+
+    function isAllowedFamilyMember(data) {
+      return isVerifiedUser() &&
+        request.auth.token.email != null &&
+        (
+          request.auth.token.email.lower() == 'elsonotake@gmail.com' ||
+          (
+            'allowedEmails' in data &&
+            data.allowedEmails is list &&
+            request.auth.token.email.lower() in data.allowedEmails
+          )
+        );
+    }
+
+    function isValidPlace(data) {
+      return data.keys().hasAll([
+        'id', 'name', 'category', 'rating', 'dateVisited',
+        'wouldReturn', 'familyId', 'allowedEmails', 'createdByUid',
+        'createdByEmail', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'name', 'category', 'location', 'formattedAddress', 'rating', 'pros',
+        'cons', 'dateVisited', 'notes', 'wouldReturn', 'priceRange',
+        'googlePlaceId', 'googleMapsUrl', 'googleRating', 'googleRatingCount',
+        'latitude', 'longitude', 'website', 'editorialSummary',
+        'familyId', 'allowedEmails', 'createdByUid', 'createdByEmail',
+        'createdByName', 'createdAt', 'updatedAt'
+      ]) &&
+      data.id is string && isValidId(data.id) &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 128 &&
+      data.category in ['Coffee Shop', 'Bookstore', 'Restaurant', 'Bakery', 'Bar', 'Other'] &&
+      (!('location' in data) || (data.location is string && data.location.size() <= 256)) &&
+      (!('formattedAddress' in data) || (data.formattedAddress is string && data.formattedAddress.size() <= 512)) &&
+      (!('googlePlaceId' in data) || (data.googlePlaceId is string && data.googlePlaceId.size() <= 256)) &&
+      (!('googleMapsUrl' in data) || (data.googleMapsUrl is string && data.googleMapsUrl.size() <= 1024)) &&
+      (!('googleRating' in data) || (data.googleRating is number && data.googleRating >= 0 && data.googleRating <= 5)) &&
+      (!('googleRatingCount' in data) || (data.googleRatingCount is number && data.googleRatingCount >= 0)) &&
+      (!('latitude' in data) || (data.latitude is number && data.latitude >= -90 && data.latitude <= 90)) &&
+      (!('longitude' in data) || (data.longitude is number && data.longitude >= -180 && data.longitude <= 180)) &&
+      (!('website' in data) || (data.website is string && data.website.size() <= 1024)) &&
+      (!('editorialSummary' in data) || (data.editorialSummary is string && data.editorialSummary.size() <= 2048)) &&
+      data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+      (!('pros' in data) || (data.pros is list && data.pros.size() <= 20 && (data.pros.size() == 0 || data.pros[0] is string))) &&
+      (!('cons' in data) || (data.cons is list && data.cons.size() <= 20 && (data.cons.size() == 0 || data.cons[0] is string))) &&
+      data.dateVisited is string && data.dateVisited.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000)) &&
+      data.wouldReturn is bool &&
+      (!('priceRange' in data) || (data.priceRange in ['$', '$$', '$$$', '$$$$'])) &&
+      data.familyId is string && data.familyId.size() <= 64 &&
+      data.allowedEmails is list && data.allowedEmails.size() <= 20 &&
+      data.createdByUid is string && data.createdByUid.size() <= 128 &&
+      data.createdByEmail is string && data.createdByEmail.size() <= 128 &&
+      (!('createdByName' in data) || (data.createdByName is string && data.createdByName.size() <= 128)) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    match /places/{placeId} {
+      // Secure List Queries
+      allow list: if isVerifiedUser() &&
+        isAllowedFamilyMember(resource.data);
+
+      allow get: if isVerifiedUser() &&
+        isValidId(placeId) &&
+        isAllowedFamilyMember(existing());
+
+      allow create: if isVerifiedUser() &&
+        isValidId(placeId) &&
+        isValidPlace(incoming()) &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().createdByEmail.lower() == request.auth.token.email.lower() &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAllowedFamilyMember(incoming());
+
+      allow update: if isVerifiedUser() &&
+        isValidId(placeId) &&
+        isValidPlace(incoming()) &&
+        isAllowedFamilyMember(existing()) &&
+        isAllowedFamilyMember(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().createdByUid == existing().createdByUid &&
+        incoming().createdByEmail == existing().createdByEmail &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'category', 'location', 'formattedAddress', 'rating', 'pros', 'cons',
+          'dateVisited', 'notes', 'wouldReturn', 'priceRange',
+          'googlePlaceId', 'googleMapsUrl', 'googleRating', 'googleRatingCount',
+          'latitude', 'longitude', 'website', 'editorialSummary',
+          'allowedEmails', 'updatedAt'
+        ]);
+
+      allow delete: if isVerifiedUser() &&
+        isValidId(placeId) &&
+        isAllowedFamilyMember(existing());
+    }
+
+    function isValidFamilyConfig(data) {
+      return data.keys().hasAll(['id', 'ownerEmail', 'allowedEmails', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'ownerEmail', 'wifeEmail', 'allowedEmails', 'updatedAt']) &&
+        data.id is string && isValidId(data.id) &&
+        data.ownerEmail is string && data.ownerEmail.size() <= 128 &&
+        (!('wifeEmail' in data) || (data.wifeEmail is string && data.wifeEmail.size() <= 128)) &&
+        data.allowedEmails is list && data.allowedEmails.size() <= 20 &&
+        data.updatedAt is timestamp;
+    }
+
+    match /family_config/{configId} {
+      allow get: if isVerifiedUser() &&
+        isValidId(configId) &&
+        (isElson() || (existing().allowedEmails is list && request.auth.token.email.lower() in existing().allowedEmails));
+
+      allow create, update: if isElson() &&
+        isValidId(configId) &&
+        isValidFamilyConfig(incoming()) &&
+        incoming().ownerEmail.lower() == 'elsonotake@gmail.com' &&
+        incoming().updatedAt == request.time;
+
+      allow delete: if false;
+    }
+  }
+}

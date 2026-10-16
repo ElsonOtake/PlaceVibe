@@ -14,6 +14,8 @@ import {
   CheckCheck,
   ThumbsUp,
   ThumbsDown,
+  ExternalLink,
+  Compass,
 } from 'lucide-react';
 
 interface PlaceCardProps {
@@ -21,16 +23,24 @@ interface PlaceCardProps {
   onEdit: (place: PlaceEntry) => void;
   onDelete: (id: string, name: string) => void;
   onDuplicate: (place: PlaceEntry) => void;
+  onFocusMap?: (place: PlaceEntry) => void;
 }
 
-export function PlaceCard({ place, onEdit, onDelete, onDuplicate }: PlaceCardProps) {
+export function PlaceCard({
+  place,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onFocusMap,
+}: PlaceCardProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopySummary = () => {
     const text = [
       `📍 ${place.name} (${place.category})`,
-      place.location ? `Location: ${place.location}` : '',
+      place.formattedAddress || place.location ? `Location: ${place.formattedAddress || place.location}` : '',
       `Rating: ${place.rating}/5.0 | Date: ${place.dateVisited}`,
+      place.googleRating ? `Google Rating: ${place.googleRating}★` : '',
       `Would Return: ${place.wouldReturn ? 'Yes ✅' : 'No ❌'}`,
       place.pros.length > 0 ? `Pros:\n${place.pros.map((p) => `  + ${p}`).join('\n')}` : '',
       place.cons.length > 0 ? `Cons:\n${place.cons.map((c) => `  - ${c}`).join('\n')}` : '',
@@ -60,15 +70,32 @@ export function PlaceCard({ place, onEdit, onDelete, onDuplicate }: PlaceCardPro
     );
   }
 
+  const hasCoords = typeof place.latitude === 'number' && typeof place.longitude === 'number';
+
   return (
     <article className="bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col justify-between space-y-4">
       {/* Top Header */}
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-bold text-slate-900 tracking-tight leading-snug truncate" title={place.name}>
-              {place.name}
-            </h3>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3
+                className="text-base font-bold text-slate-900 tracking-tight leading-snug truncate"
+                title={place.name}
+              >
+                {place.name}
+              </h3>
+              {hasCoords && (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/70 px-1.5 py-0.2 rounded font-medium"
+                  title="Pinned on Google Maps"
+                >
+                  <MapPin className="w-2.5 h-2.5 text-amber-600" />
+                  <span>Mapped</span>
+                </span>
+              )}
+            </div>
+
             {/* Unboxed clean metadata */}
             <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1 flex-wrap">
               <span className="font-medium text-slate-700">{place.category}</span>
@@ -77,12 +104,15 @@ export function PlaceCard({ place, onEdit, onDelete, onDuplicate }: PlaceCardPro
                 <Calendar className="w-3 h-3 text-slate-400" />
                 <span>{place.dateVisited}</span>
               </span>
-              {place.location && (
+              {(place.formattedAddress || place.location) && (
                 <>
                   <span aria-hidden="true" className="text-slate-300">·</span>
-                  <span className="flex items-center gap-1 truncate max-w-[150px]" title={place.location}>
+                  <span
+                    className="flex items-center gap-1 truncate max-w-[170px]"
+                    title={place.formattedAddress || place.location}
+                  >
                     <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span className="truncate">{place.location}</span>
+                    <span className="truncate">{place.formattedAddress || place.location}</span>
                   </span>
                 </>
               )}
@@ -110,23 +140,40 @@ export function PlaceCard({ place, onEdit, onDelete, onDuplicate }: PlaceCardPro
           </div>
         </div>
 
-        {/* Rating Score */}
-        <div className="flex items-center gap-2 pt-0.5">
-          <div className="flex items-center gap-0.5">{stars}</div>
-          <span className="text-xs font-bold text-slate-900 font-mono tabular-nums">
-            {place.rating}.0
-          </span>
-          <span className="text-[11px] text-slate-400">
-            {place.rating === 5
-              ? 'Outstanding'
-              : place.rating === 4
-              ? 'Very Good'
-              : place.rating === 3
-              ? 'Average'
-              : place.rating === 2
-              ? 'Disappointing'
-              : 'Poor'}
-          </span>
+        {/* Rating Score & Google Benchmark */}
+        <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-0.5">{stars}</div>
+            <span className="text-xs font-bold text-slate-900 font-mono tabular-nums">
+              {place.rating}.0
+            </span>
+            <span className="text-[11px] text-slate-400">
+              {place.rating === 5
+                ? 'Outstanding'
+                : place.rating === 4
+                ? 'Very Good'
+                : place.rating === 3
+                ? 'Average'
+                : place.rating === 2
+                ? 'Disappointing'
+                : 'Poor'}
+            </span>
+          </div>
+
+          {/* Google Maps rating benchmark */}
+          {place.googleRating && (
+            <div className="flex items-center gap-1 text-[11px] bg-slate-50 border border-slate-200/70 px-2 py-0.5 rounded-md text-slate-600">
+              <span className="text-slate-400 font-medium">Google:</span>
+              <span className="font-bold text-slate-800 flex items-center gap-0.5">
+                ★ {place.googleRating.toFixed(1)}
+              </span>
+              {place.googleRatingCount && (
+                <span className="text-[10px] text-slate-400">
+                  ({place.googleRatingCount.toLocaleString()})
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -183,24 +230,45 @@ export function PlaceCard({ place, onEdit, onDelete, onDuplicate }: PlaceCardPro
       </div>
 
       {/* Card Footer Actions */}
-      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-        <button
-          onClick={handleCopySummary}
-          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-          title="Copy visit summary to clipboard"
-        >
-          {copied ? (
-            <>
-              <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-emerald-600">Copied</span>
-            </>
-          ) : (
-            <>
-              <Copy className="w-3.5 h-3.5" />
-              <span>Copy</span>
-            </>
+      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCopySummary}
+            className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+            title="Copy visit summary to clipboard"
+          >
+            {copied ? (
+              <>
+                <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-600">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+
+          {place.googleMapsUrl && (
+            <a
+              href={place.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 transition-colors font-medium"
+              title="Open spot in Google Maps"
+            >
+              <span>Maps</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
           )}
-        </button>
+
+          {(place.createdByName || place.createdByEmail) && (
+            <span className="text-[10px] text-slate-400 border-l border-slate-200 pl-2 hidden sm:inline">
+              By {place.createdByName || place.createdByEmail?.split('@')[0]}
+            </span>
+          )}
+        </div>
 
         <div className="flex items-center gap-1 sm:gap-2">
           <button

@@ -8,7 +8,7 @@ export function generateStandaloneHtml(currentEntries: PlaceEntry[]): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PlaceVibe — Personal Spot & Cafe Visit Journal</title>
+  <title>Every Visited Spot — Spot & Cafe Visit Journal</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -61,11 +61,11 @@ export function generateStandaloneHtml(currentEntries: PlaceEntry[]): string {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-          PV
+          EV
         </div>
         <div>
           <a href="#" class="text-xl font-bold tracking-tight text-slate-900 hover:text-amber-600 transition-colors">
-            PlaceVibe
+            Every Visited Spot
           </a>
           <span class="hidden sm:inline-block text-xs text-slate-500 ml-2 border-l border-slate-200 pl-2">
             Personal Spot & Cafe Journal
@@ -94,7 +94,7 @@ export function generateStandaloneHtml(currentEntries: PlaceEntry[]): string {
       <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            Your Memory Bank of Favorite Spots
+            Every Visited Spot
           </h1>
           <p class="text-sm text-slate-600 mt-1 max-w-2xl">
             Track cafes, bookstores, eateries and bars. Record candid pros, cons, and honest ratings so you always know where to return.

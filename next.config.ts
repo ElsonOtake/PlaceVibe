@@ -20,7 +20,13 @@ const nextConfig: NextConfig = {
     ],
   },
   output: 'standalone',
-  transpilePackages: ['motion'],
+  transpilePackages: ['motion', '@vis.gl/react-google-maps'],
+  env: {
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+      process.env.VITE_GOOGLE_MAPS_API_KEY ||
+      'AIzaSyDkiCzLQVpJaTtsUxkRQkcPYf2_Z3V7ZlE',
+  },
   webpack: (config, {dev}) => {
     // HMR is disabled in AI Studio via DISABLE_HMR env var.
     // Do not modify—file watching is disabled to prevent flickering during agent edits.

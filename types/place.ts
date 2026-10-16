@@ -29,7 +29,30 @@ export interface PlaceEntry {
   notes: string;
   wouldReturn: boolean;
   priceRange?: PriceRange;
+  // Google Maps enriched spot info
+  googlePlaceId?: string;
+  googleMapsUrl?: string;
+  googleRating?: number;
+  googleRatingCount?: number;
+  latitude?: number;
+  longitude?: number;
+  formattedAddress?: string;
+  website?: string;
+  editorialSummary?: string;
+  familyId?: string;
+  allowedEmails?: string[];
+  createdByUid?: string;
+  createdByEmail?: string;
+  createdByName?: string;
   createdAt: number;
+  updatedAt: number;
+}
+
+export interface FamilyConfig {
+  id: string;
+  ownerEmail: string;
+  wifeEmail?: string;
+  allowedEmails: string[];
   updatedAt: number;
 }
 
@@ -71,7 +94,13 @@ export const INITIAL_MOCK_ENTRIES: PlaceEntry[] = [
     id: 'pv-mock-1',
     name: 'Blue Bottle Coffee',
     category: 'Coffee Shop',
-    location: 'Hayes Valley, San Francisco',
+    location: '315 Linden St, Hayes Valley, San Francisco, CA',
+    formattedAddress: '315 Linden St, San Francisco, CA 94102',
+    latitude: 37.7763,
+    longitude: -122.4233,
+    googleRating: 4.5,
+    googleRatingCount: 1680,
+    googleMapsUrl: 'https://maps.google.com/?q=Blue+Bottle+Coffee+Hayes+Valley',
     rating: 5,
     pros: [
       'Flawless single-origin pour-over (Bella Donovan)',
@@ -95,7 +124,13 @@ export const INITIAL_MOCK_ENTRIES: PlaceEntry[] = [
     id: 'pv-mock-2',
     name: 'Livraria Cultura & Mezzanine',
     category: 'Bookstore',
-    location: 'Paulista Avenue, Cultural District',
+    location: 'Av. Paulista, 2073, Cerqueira César, São Paulo',
+    formattedAddress: 'Av. Paulista, 2073 - Bela Vista, São Paulo - SP',
+    latitude: -23.5587,
+    longitude: -46.6601,
+    googleRating: 4.8,
+    googleRatingCount: 5200,
+    googleMapsUrl: 'https://maps.google.com/?q=Livraria+Cultura+Paulista',
     rating: 5,
     pros: [
       'Endless multi-tier wooden reading bleachers',
@@ -119,7 +154,13 @@ export const INITIAL_MOCK_ENTRIES: PlaceEntry[] = [
     id: 'pv-mock-3',
     name: 'Osteria Stella Di Notte',
     category: 'Restaurant',
-    location: 'North End Waterfront',
+    location: 'North End Waterfront, Boston, MA',
+    formattedAddress: '242 Hanover St, Boston, MA 02113',
+    latitude: 42.3647,
+    longitude: -71.0542,
+    googleRating: 4.6,
+    googleRatingCount: 890,
+    googleMapsUrl: 'https://maps.google.com/?q=Osteria+North+End+Boston',
     rating: 4,
     pros: [
       'Handmade cacio e pepe and squid ink tagliolini',
@@ -142,7 +183,13 @@ export const INITIAL_MOCK_ENTRIES: PlaceEntry[] = [
     id: 'pv-mock-4',
     name: 'The Rusty Taphouse',
     category: 'Bar',
-    location: 'Warehouse District',
+    location: 'Warehouse District, Portland, OR',
+    formattedAddress: '1022 SE Ankeny St, Portland, OR 97214',
+    latitude: 45.5228,
+    longitude: -122.6551,
+    googleRating: 4.2,
+    googleRatingCount: 420,
+    googleMapsUrl: 'https://maps.google.com/?q=Taphouse+Portland+OR',
     rating: 2,
     pros: [
       'Generous rotating draft list of local IPAs and ciders',
@@ -165,7 +212,13 @@ export const INITIAL_MOCK_ENTRIES: PlaceEntry[] = [
     id: 'pv-mock-5',
     name: 'Flour & Stone Hearth',
     category: 'Bakery',
-    location: 'Maple Street Market',
+    location: 'Market Street Market, San Francisco, CA',
+    formattedAddress: '55 4th St, San Francisco, CA 94103',
+    latitude: 37.7858,
+    longitude: -122.4045,
+    googleRating: 4.9,
+    googleRatingCount: 2310,
+    googleMapsUrl: 'https://maps.google.com/?q=Flour+Bakery+San+Francisco',
     rating: 5,
     pros: [
       'Naturally leavened sourdough country loaves with blistered crust',

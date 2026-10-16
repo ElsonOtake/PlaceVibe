@@ -3,24 +3,23 @@ import { PlaceEntry, INITIAL_MOCK_ENTRIES } from '@/types/place';
 const STORAGE_KEY = 'placevibe_visits_v1';
 
 let memoryPlaces: PlaceEntry[] = INITIAL_MOCK_ENTRIES;
+let isHydrated = false;
 
-// Preload from localStorage in browser environment if available
-if (typeof window !== 'undefined') {
+function loadFromStorage(): PlaceEntry[] {
+  if (typeof window === 'undefined') return INITIAL_MOCK_ENTRIES;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        memoryPlaces = parsed;
-      } else {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_MOCK_ENTRIES));
+        return parsed;
       }
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_MOCK_ENTRIES));
     }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_MOCK_ENTRIES));
   } catch {
-    memoryPlaces = INITIAL_MOCK_ENTRIES;
+    // fallback if localStorage is disabled or throws
   }
+  return INITIAL_MOCK_ENTRIES;
 }
 
 const listeners = new Set<() => void>();
@@ -32,6 +31,15 @@ function notify() {
 export const placesStore = {
   subscribe(listener: () => void) {
     listeners.add(listener);
+
+    // When the first client subscriber mounts after React finishes initial hydration,
+    // transition to hydrated state and load client localStorage data
+    if (!isHydrated) {
+      isHydrated = true;
+      memoryPlaces = loadFromStorage();
+      notify();
+    }
+
     // Also listen to cross-tab storage changes
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
@@ -42,13 +50,15 @@ export const placesStore = {
             notify();
           }
         } catch {
-          // ignore
+          // ignore invalid json
         }
       }
     };
+
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', onStorage);
     }
+
     return () => {
       listeners.delete(listener);
       if (typeof window !== 'undefined') {
@@ -56,13 +66,21 @@ export const placesStore = {
       }
     };
   },
+
   getSnapshot(): PlaceEntry[] {
+    // During initial client hydration, guarantee that snapshot matches server HTML
+    if (!isHydrated) {
+      return INITIAL_MOCK_ENTRIES;
+    }
     return memoryPlaces;
   },
+
   getServerSnapshot(): PlaceEntry[] {
     return INITIAL_MOCK_ENTRIES;
   },
+
   savePlaces(newPlaces: PlaceEntry[]) {
+    isHydrated = true;
     memoryPlaces = newPlaces;
     if (typeof window !== 'undefined') {
       try {

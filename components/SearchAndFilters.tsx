@@ -128,7 +128,7 @@ export function SearchAndFilters({
             >
               <span>{cat}</span>
               <span
-                className={`text-[10px] font-mono tabular-nums px-1.5 py-0.2 rounded-full ${
+                className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${
                   isSelected ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'
                 }`}
               >

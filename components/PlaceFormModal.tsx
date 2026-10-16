@@ -1,6 +1,7 @@
+// Source: Google Maps Platform Code Assist
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   PlaceEntry,
   PlaceCategory,
@@ -9,22 +10,46 @@ import {
   POPULAR_PROS,
   POPULAR_CONS,
 } from '@/types/place';
-import { X, Star, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useAutocompleteSuggestions } from '@/hooks/use-autocomplete-suggestions';
+import {
+  mapGoogleTypesToCategory,
+  mapGooglePriceLevel,
+} from '@/lib/google-maps-utils';
+import {
+  X,
+  Star,
+  ThumbsUp,
+  ThumbsDown,
+  MapPin,
+  Search,
+  Sparkles,
+  ExternalLink,
+  CheckCircle2,
+  Loader2,
+  Compass,
+} from 'lucide-react';
 
 interface PlaceFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (entry: Omit<PlaceEntry, 'id' | 'createdAt' | 'updatedAt'>, id?: string) => void;
+  onSave: (
+    entry: Omit<PlaceEntry, 'id' | 'createdAt' | 'updatedAt'>,
+    id?: string
+  ) => void;
   initialData?: PlaceEntry | null;
 }
 
 interface FormInnerProps {
   onClose: () => void;
-  onSave: (entry: Omit<PlaceEntry, 'id' | 'createdAt' | 'updatedAt'>, id?: string) => void;
+  onSave: (
+    entry: Omit<PlaceEntry, 'id' | 'createdAt' | 'updatedAt'>,
+    id?: string
+  ) => void;
   initialData?: PlaceEntry | null;
 }
 
 function FormInner({ onClose, onSave, initialData }: FormInnerProps) {
+  // Core journal fields
   const [name, setName] = useState(initialData?.name || '');
   const [category, setCategory] = useState<PlaceCategory>(
     initialData?.category || 'Coffee Shop'
@@ -41,13 +66,145 @@ function FormInner({ onClose, onSave, initialData }: FormInnerProps) {
   const [wouldReturn, setWouldReturn] = useState(
     initialData?.wouldReturn ?? true
   );
-  const [pros, setPros] = useState<string[]>(initialData?.pros ? [...initialData.pros] : []);
-  const [cons, setCons] = useState<string[]>(initialData?.cons ? [...initialData.cons] : []);
+  const [pros, setPros] = useState<string[]>(
+    initialData?.pros ? [...initialData.pros] : []
+  );
+  const [cons, setCons] = useState<string[]>(
+    initialData?.cons ? [...initialData.cons] : []
+  );
   const [notes, setNotes] = useState(initialData?.notes || '');
+
+  // Google Maps enriched fields
+  const [googlePlaceId, setGooglePlaceId] = useState(
+    initialData?.googlePlaceId || ''
+  );
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(
+    initialData?.googleMapsUrl || ''
+  );
+  const [googleRating, setGoogleRating] = useState<number | undefined>(
+    initialData?.googleRating
+  );
+  const [googleRatingCount, setGoogleRatingCount] = useState<number | undefined>(
+    initialData?.googleRatingCount
+  );
+  const [latitude, setLatitude] = useState<number | undefined>(
+    initialData?.latitude
+  );
+  const [longitude, setLongitude] = useState<number | undefined>(
+    initialData?.longitude
+  );
+  const [formattedAddress, setFormattedAddress] = useState(
+    initialData?.formattedAddress || ''
+  );
+  const [website, setWebsite] = useState(initialData?.website || '');
+  const [editorialSummary, setEditorialSummary] = useState(
+    initialData?.editorialSummary || ''
+  );
+
+  // Google Maps live search state
+  const [mapSearchInput, setMapSearchInput] = useState('');
+  const [isSearchingMap, setIsSearchingMap] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [hasEnrichedNotice, setHasEnrichedNotice] = useState(false);
+
+  const { suggestions, isLoading: isSuggestionsLoading, resetSession } =
+    useAutocompleteSuggestions(mapSearchInput);
 
   const [proInput, setProInput] = useState('');
   const [conInput, setConInput] = useState('');
   const [error, setError] = useState('');
+
+  // Select place from Google Maps Autocomplete
+  const handleSelectGooglePlace = useCallback(
+    async (suggestion: google.maps.places.AutocompleteSuggestion) => {
+      if (!suggestion.placePrediction) return;
+
+      try {
+        setIsEnriching(true);
+        setError('');
+
+        // 1. Convert prediction to full Place object
+        const place = suggestion.placePrediction.toPlace();
+
+        // 2. Fetch required details from Places API (New)
+        await place.fetchFields({
+          fields: [
+            'displayName',
+            'formattedAddress',
+            'location',
+            'rating',
+            'userRatingCount',
+            'types',
+            'priceLevel',
+            'websiteURI',
+            'googleMapsURI',
+            'editorialSummary',
+          ],
+        });
+
+        // 3. Pre-fill form fields
+        if (place.displayName) setName(place.displayName);
+        if (place.formattedAddress) {
+          setLocation(place.formattedAddress);
+          setFormattedAddress(place.formattedAddress);
+        }
+
+        // Auto map category
+        const detectedCat = mapGoogleTypesToCategory(place.types);
+        if (detectedCat) setCategory(detectedCat);
+
+        // Auto map price range
+        const detectedPrice = mapGooglePriceLevel(place.priceLevel);
+        if (detectedPrice) setPriceRange(detectedPrice);
+
+        // Coordinates
+        if (place.location) {
+          setLatitude(place.location.lat());
+          setLongitude(place.location.lng());
+        }
+
+        // Google Maps metadata
+        if (typeof place.rating === 'number') setGoogleRating(place.rating);
+        if (typeof place.userRatingCount === 'number')
+          setGoogleRatingCount(place.userRatingCount);
+        if (place.googleMapsURI) setGoogleMapsUrl(place.googleMapsURI);
+        if (place.websiteURI) setWebsite(place.websiteURI);
+        if (place.id) setGooglePlaceId(place.id);
+
+        if (place.editorialSummary) {
+          setEditorialSummary(place.editorialSummary);
+          // Pre-fill notes if user hasn't written any yet
+          if (!notes.trim()) {
+            setNotes(place.editorialSummary);
+          }
+        }
+
+        setHasEnrichedNotice(true);
+        setMapSearchInput('');
+        setIsSearchingMap(false);
+        resetSession();
+      } catch (err: unknown) {
+        console.error('Failed to fetch Google Place details:', err);
+        setError('Could not fetch details for this spot from Google Maps.');
+      } finally {
+        setIsEnriching(false);
+      }
+    },
+    [notes, resetSession]
+  );
+
+  const handleClearGoogleData = () => {
+    setGooglePlaceId('');
+    setGoogleMapsUrl('');
+    setGoogleRating(undefined);
+    setGoogleRatingCount(undefined);
+    setLatitude(undefined);
+    setLongitude(undefined);
+    setFormattedAddress('');
+    setWebsite('');
+    setEditorialSummary('');
+    setHasEnrichedNotice(false);
+  };
 
   const handleAddPro = () => {
     const trimmed = proInput.trim();
@@ -101,6 +258,7 @@ function FormInner({ onClose, onSave, initialData }: FormInnerProps) {
         name: name.trim(),
         category,
         location: location.trim() || undefined,
+        formattedAddress: formattedAddress.trim() || undefined,
         dateVisited,
         rating,
         priceRange,
@@ -108,6 +266,15 @@ function FormInner({ onClose, onSave, initialData }: FormInnerProps) {
         pros,
         cons,
         notes: notes.trim(),
+        // Enriched Google Maps properties
+        googlePlaceId: googlePlaceId || undefined,
+        googleMapsUrl: googleMapsUrl || undefined,
+        googleRating,
+        googleRatingCount,
+        latitude,
+        longitude,
+        website: website || undefined,
+        editorialSummary: editorialSummary || undefined,
       },
       initialData ? initialData.id : undefined
     );
@@ -127,10 +294,12 @@ function FormInner({ onClose, onSave, initialData }: FormInnerProps) {
       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
           <h3 className="text-lg font-bold text-slate-900">
-            {initialData?.name ? `Edit Visit: ${initialData.name}` : 'Log a Spot Visit'}
+            {initialData?.name
+              ? `Edit Visit: ${initialData.name}`
+              : 'Log a Spot Visit'}
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Record candid pros & cons, rate the vibe, and store notes for next time.
+            Use Google Maps to pre-fill spot information, then record your candid pros & cons.
           </p>
         </div>
         <button
@@ -146,6 +315,150 @@ function FormInner({ onClose, onSave, initialData }: FormInnerProps) {
           {error}
         </div>
       )}
+
+      {/* Google Maps Search & Autocomplete Bar */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50 border border-amber-200/90 rounded-2xl p-3.5 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            <span>Google Maps Spot Search & Auto-Fill</span>
+          </div>
+          <span className="text-[10px] text-amber-700 font-medium">
+            Pre-fills Name, Category, Address & Rating
+          </span>
+        </div>
+
+        <div className="relative">
+          <div className="relative flex items-center">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+            <input
+              type="text"
+              value={mapSearchInput}
+              onChange={(e) => {
+                setMapSearchInput(e.target.value);
+                setIsSearchingMap(true);
+              }}
+              onFocus={() => setIsSearchingMap(true)}
+              placeholder="Search place on Google Maps (e.g. Blue Bottle Hayes, Tartine, Strand Book Store)..."
+              className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-amber-200 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+            />
+            {mapSearchInput && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMapSearchInput('');
+                  resetSession();
+                }}
+                className="absolute right-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Autocomplete Suggestions Dropdown */}
+          {isSearchingMap && (isSuggestionsLoading || suggestions.length > 0) && (
+            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100">
+              {isSuggestionsLoading ? (
+                <div className="p-3 text-xs text-slate-500 flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                  <span>Searching Google Maps Places...</span>
+                </div>
+              ) : (
+                suggestions.map((suggestion, idx) => {
+                  const prediction = suggestion.placePrediction;
+                  const mainText =
+                    prediction?.mainText?.text ||
+                    prediction?.text?.text ||
+                    '';
+                  const secondaryText =
+                    prediction?.secondaryText?.text || '';
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectGooglePlace(suggestion)}
+                      className="w-full text-left px-3.5 py-2.5 hover:bg-amber-50/70 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                    >
+                      <MapPin className="w-4 h-4 text-amber-600 mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-slate-900 truncate">
+                          {mainText}
+                        </p>
+                        {secondaryText && (
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {secondaryText}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Loading details feedback */}
+        {isEnriching && (
+          <div className="flex items-center gap-2 text-xs text-amber-800 bg-white/80 p-2 rounded-lg border border-amber-200">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+            <span>Fetching spot coordinates, Google rating, and address details...</span>
+          </div>
+        )}
+
+        {/* Active Google Maps Connection Preview */}
+        {(googlePlaceId || (latitude && longitude) || googleRating) && (
+          <div className="bg-white/95 border border-emerald-200 rounded-xl p-2.5 flex items-start justify-between gap-2 shadow-xs">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Linked to Google Maps Location</span>
+                {googleRating && (
+                  <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                    ★ {googleRating.toFixed(1)}
+                    {googleRatingCount ? ` (${googleRatingCount})` : ''}
+                  </span>
+                )}
+              </div>
+              {formattedAddress && (
+                <p className="text-[11px] text-slate-600 truncate flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>{formattedAddress}</span>
+                </p>
+              )}
+              {hasEnrichedNotice && (
+                <p className="text-[10px] text-emerald-700 italic">
+                  ✓ Form auto-filled with official spot details. You can customize anything below!
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              {googleMapsUrl && (
+                <a
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-50 rounded-lg transition-colors"
+                  title="Open in Google Maps"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={handleClearGoogleData}
+                className="text-[11px] text-slate-400 hover:text-rose-600 px-1.5 py-1 transition-colors cursor-pointer"
+                title="Unlink Google Maps spot"
+              >
+                Unlink
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Name & Category */}
@@ -188,13 +501,13 @@ function FormInner({ onClose, onSave, initialData }: FormInnerProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Location / Neighborhood
+              Location / Address
             </label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. Hayes Valley, SF"
+              placeholder="e.g. 315 Linden St, Hayes Valley, SF"
               className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
           </div>
@@ -216,7 +529,7 @@ function FormInner({ onClose, onSave, initialData }: FormInnerProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Overall Rating (1 - 5 Stars) *
+              Personal Rating (1 - 5 Stars) *
             </label>
             <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((starVal) => {
@@ -491,7 +804,9 @@ export function PlaceFormModal({
 }: PlaceFormModalProps) {
   if (!isOpen) return null;
 
-  const formKey = initialData?.id || (initialData?.name ? `dup-${initialData.name}` : 'new-entry');
+  const formKey =
+    initialData?.id ||
+    (initialData?.name ? `dup-${initialData.name}` : 'new-entry');
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
