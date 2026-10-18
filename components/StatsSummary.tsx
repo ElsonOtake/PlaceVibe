@@ -3,12 +3,14 @@
 import React from 'react';
 import { PlaceEntry } from '@/types/place';
 import { Star, MapPin, Layers, HeartHandshake } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n';
 
 interface StatsSummaryProps {
   places: PlaceEntry[];
 }
 
 export function StatsSummary({ places }: StatsSummaryProps) {
+  const { t, language } = useLanguage();
   const total = places.length;
 
   // Top Rated Spot
@@ -35,12 +37,15 @@ export function StatsSummary({ places }: StatsSummaryProps) {
   const returnCount = places.filter((p) => p.wouldReturn).length;
   const returnRate = total > 0 ? Math.round((returnCount / total) * 100) : 0;
 
+  const translatedCategory = t.categoryLabels[topCategory] || topCategory;
+  const topSpotCategory = topSpot ? (t.categoryLabels[topSpot.category] || topSpot.category) : '';
+
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {/* Total Places Visited */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+      <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-          <span>Places Visited</span>
+          <span>{t.totalPlaces}</span>
           <MapPin className="w-4 h-4 text-slate-400" />
         </div>
         <div className="mt-2">
@@ -48,15 +53,15 @@ export function StatsSummary({ places }: StatsSummaryProps) {
             {total}
           </div>
           <div className="text-xs text-slate-500 mt-1">
-            {total === 1 ? '1 spot recorded' : `${total} spots recorded`}
+            {t.spotsCount(total)}
           </div>
         </div>
       </div>
 
       {/* Top-Rated Spot */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+      <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-          <span>Top-Rated Spot</span>
+          <span>{t.avgRating}</span>
           <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
         </div>
         <div className="mt-2">
@@ -68,35 +73,39 @@ export function StatsSummary({ places }: StatsSummaryProps) {
               <>
                 <span>★ {topSpot.rating}.0</span>
                 <span className="text-slate-400 font-normal">·</span>
-                <span className="text-slate-500 font-normal">{topSpot.category}</span>
+                <span className="text-slate-500 font-normal truncate">{topSpotCategory}</span>
               </>
             ) : (
-              <span className="text-slate-400 font-normal">No ratings yet</span>
+              <span className="text-slate-400 font-normal">{t.noData}</span>
             )}
           </div>
         </div>
       </div>
 
       {/* Most Frequent Category */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+      <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-          <span>Top Category</span>
+          <span>{t.topCategory}</span>
           <Layers className="w-4 h-4 text-slate-400" />
         </div>
         <div className="mt-2">
           <div className="text-base sm:text-lg font-bold text-slate-900 truncate">
-            {topCategory}
+            {topCategoryCount > 0 ? translatedCategory : '—'}
           </div>
           <div className="text-xs text-slate-500 mt-1">
-            {topCategoryCount > 0 ? `${topCategoryCount} visits logged` : 'No spots yet'}
+            {topCategoryCount > 0
+              ? language === 'pt-BR'
+                ? `${topCategoryCount} visitas registradas`
+                : `${topCategoryCount} visits logged`
+              : t.noData}
           </div>
         </div>
       </div>
 
       {/* Return Rate */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+      <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-          <span>Return Rate</span>
+          <span>{t.wouldReturnRate}</span>
           <HeartHandshake className="w-4 h-4 text-emerald-600" />
         </div>
         <div className="mt-2">
@@ -104,7 +113,9 @@ export function StatsSummary({ places }: StatsSummaryProps) {
             {returnRate}%
           </div>
           <div className="text-xs text-slate-500 mt-1">
-            {returnCount} of {total} spots recommended
+            {language === 'pt-BR'
+              ? `${returnCount} de ${total} recomendados`
+              : `${returnCount} of ${total} spots recommended`}
           </div>
         </div>
       </div>

@@ -9,6 +9,7 @@ import {
   useMap,
 } from '@vis.gl/react-google-maps';
 import { PlaceEntry, PlaceCategory } from '@/types/place';
+import { useLanguage } from '@/lib/i18n';
 import {
   Star,
   MapPin,
@@ -71,6 +72,7 @@ export function SpotsMapView({
   onEditPlace,
   selectedCategory,
 }: SpotsMapViewProps) {
+  const { t } = useLanguage();
   const [selectedSpot, setSelectedSpot] = useState<PlaceEntry | null>(null);
 
   // Spots with valid coordinates
@@ -203,7 +205,7 @@ export function SpotsMapView({
                 {/* Google Maps benchmark if available */}
                 {selectedSpot.googleRating && (
                   <div className="bg-amber-50/70 border border-amber-200/50 rounded px-2 py-1 mb-2 flex items-center justify-between text-[11px]">
-                    <span className="text-slate-600 font-medium">Google Rating:</span>
+                    <span className="text-slate-600 font-medium">{t.googleRatingLabel}</span>
                     <span className="font-bold text-slate-900">
                       ★ {selectedSpot.googleRating.toFixed(1)}
                       {selectedSpot.googleRatingCount ? ` (${selectedSpot.googleRatingCount})` : ''}
@@ -213,7 +215,7 @@ export function SpotsMapView({
 
                 {selectedSpot.pros.length > 0 && (
                   <div className="text-[11px] text-emerald-800 bg-emerald-50 rounded p-1 mb-1.5 line-clamp-2">
-                    <span className="font-semibold text-emerald-900">Top Pro:</span>{' '}
+                    <span className="font-semibold text-emerald-900">{t.topProLabel}</span>{' '}
                     {selectedSpot.pros[0]}
                   </div>
                 )}
@@ -223,7 +225,7 @@ export function SpotsMapView({
                     onClick={() => onEditPlace(selectedSpot)}
                     className="text-xs font-semibold text-slate-700 hover:text-slate-900 underline cursor-pointer"
                   >
-                    Edit Log
+                    {t.editLog}
                   </button>
                   {selectedSpot.googleMapsUrl && (
                     <a
@@ -246,13 +248,13 @@ export function SpotsMapView({
         <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm border border-slate-200/90 shadow-sm rounded-lg p-2 text-xs z-10 hidden sm:block max-w-[210px]">
           <div className="font-bold text-slate-800 text-[11px] mb-1.5 flex items-center gap-1">
             <Compass className="w-3.5 h-3.5 text-amber-600" />
-            <span>Map Legend ({mappedPlaces.length} pinned)</span>
+            <span>{t.mapLegend(mappedPlaces.length)}</span>
           </div>
           <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
             {Object.entries(CATEGORY_COLORS).map(([cat, colors]) => (
               <div key={cat} className="flex items-center gap-1.5 text-slate-600">
                 <span className={`w-2.5 h-2.5 rounded-full ${colors.pinBg}`} />
-                <span className="truncate">{cat}</span>
+                <span className="truncate">{t.categoryLabels[cat] || cat}</span>
               </div>
             ))}
           </div>
@@ -264,16 +266,16 @@ export function SpotsMapView({
         <div className="p-3.5 border-b border-slate-200/80 bg-white flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Spots on Map ({mappedPlaces.length})
+              {t.spotsOnMap(mappedPlaces.length)}
             </h3>
-            <p className="text-[11px] text-slate-400">Click any spot to locate</p>
+            <p className="text-[11px] text-slate-400">{t.clickSpotToLocate}</p>
           </div>
           {unmappedPlaces.length > 0 && (
             <span
               className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full font-medium"
-              title={`${unmappedPlaces.length} spots don't have coordinates. Edit them to search and attach Google Maps location.`}
+              title={t.unmappedTooltip(unmappedPlaces.length)}
             >
-              {unmappedPlaces.length} unmapped
+              {t.unmappedBadge(unmappedPlaces.length)}
             </span>
           )}
         </div>
@@ -282,15 +284,16 @@ export function SpotsMapView({
           {mappedPlaces.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-500">
               <MapPin className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-              <p className="font-medium text-slate-700">No spots mapped yet</p>
+              <p className="font-medium text-slate-700">{t.noSpotsMappedYet}</p>
               <p className="text-[11px] text-slate-400 mt-1">
-                Log a visit and pick a location with Google Maps to see it on the map.
+                {t.noSpotsMappedDesc}
               </p>
             </div>
           ) : (
             mappedPlaces.map((spot) => {
               const isSelected = selectedSpot?.id === spot.id;
               const catColors = CATEGORY_COLORS[spot.category] || CATEGORY_COLORS.Other;
+              const translatedCategory = t.categoryLabels[spot.category] || spot.category;
 
               return (
                 <div
@@ -309,7 +312,7 @@ export function SpotsMapView({
                     <span
                       className={`text-[9px] px-1.5 py-0.5 rounded font-semibold whitespace-nowrap ${catColors.bg} ${catColors.text}`}
                     >
-                      {spot.category}
+                      {translatedCategory}
                     </span>
                   </div>
 
@@ -325,11 +328,11 @@ export function SpotsMapView({
                     )}
                     {spot.wouldReturn ? (
                       <span className="text-[10px] text-emerald-600 font-medium ml-auto flex items-center gap-0.5">
-                        <ThumbsUp className="w-2.5 h-2.5" /> Return
+                        <ThumbsUp className="w-2.5 h-2.5" /> {t.returnShort}
                       </span>
                     ) : (
                       <span className="text-[10px] text-rose-500 font-medium ml-auto flex items-center gap-0.5">
-                        <ThumbsDown className="w-2.5 h-2.5" /> Pass
+                        <ThumbsDown className="w-2.5 h-2.5" /> {t.passShort}
                       </span>
                     )}
                   </div>

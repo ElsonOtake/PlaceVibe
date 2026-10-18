@@ -16,10 +16,14 @@ export const metadata: Metadata = {
   },
 };
 
+import { Providers } from '@/components/Providers';
+
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

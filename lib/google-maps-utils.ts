@@ -4,7 +4,7 @@ import { PlaceCategory, PriceRange } from '@/types/place';
 export const GOOGLE_MAPS_API_KEY =
   process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
   process.env.VITE_GOOGLE_MAPS_API_KEY ||
-  'AIzaSyDkiCzLQVpJaTtsUxkRQkcPYf2_Z3V7ZlE';
+  '';
 
 /**
  * Intelligent mapping of Google Places API (New) types to our 6 PlaceVibe categories.

@@ -25,24 +25,48 @@ service cloud.firestore {
     }
 
     function isVerifiedUser() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn() && (
+        request.auth.token.email_verified == true ||
+        request.auth.token.firebase.sign_in_provider == 'google.com'
+      );
     }
 
     function isElson() {
       return isVerifiedUser() &&
         request.auth.token.email != null &&
-        request.auth.token.email.lower() == 'elsonotake@gmail.com';
+        (
+          request.auth.token.email.matches('(?i)^elsonotake@gmail\\.com$') ||
+          request.auth.token.email.lower() == 'elsonotake@gmail.com'
+        );
     }
 
     function isAllowedFamilyMember(data) {
       return isVerifiedUser() &&
         request.auth.token.email != null &&
         (
-          request.auth.token.email.lower() == 'elsonotake@gmail.com' ||
+          isElson() ||
           (
             'allowedEmails' in data &&
             data.allowedEmails is list &&
-            request.auth.token.email.lower() in data.allowedEmails
+            (
+              request.auth.token.email in data.allowedEmails ||
+              request.auth.token.email.lower() in data.allowedEmails
+            )
+          ) ||
+          (
+            exists(/databases/$(database)/documents/family_config/settings) &&
+            (
+              request.auth.token.email in get(/databases/$(database)/documents/family_config/settings).data.allowedEmails ||
+              request.auth.token.email.lower() in get(/databases/$(database)/documents/family_config/settings).data.allowedEmails ||
+              (
+                'wifeEmail' in get(/databases/$(database)/documents/family_config/settings).data &&
+                get(/databases/$(database)/documents/family_config/settings).data.wifeEmail is string &&
+                (
+                  request.auth.token.email == get(/databases/$(database)/documents/family_config/settings).data.wifeEmail ||
+                  request.auth.token.email.lower() == get(/databases/$(database)/documents/family_config/settings).data.wifeEmail.lower()
+                )
+              )
+            )
           )
         );
     }
@@ -142,14 +166,15 @@ service cloud.firestore {
     }
 
     match /family_config/{configId} {
-      allow get: if isVerifiedUser() &&
-        isValidId(configId) &&
-        (isElson() || (existing().allowedEmails is list && request.auth.token.email.lower() in existing().allowedEmails));
+      allow get: if isVerifiedUser() && isValidId(configId);
 
       allow create, update: if isElson() &&
         isValidId(configId) &&
         isValidFamilyConfig(incoming()) &&
-        incoming().ownerEmail.lower() == 'elsonotake@gmail.com' &&
+        (
+          incoming().ownerEmail.matches('(?i)^elsonotake@gmail\\.com$') ||
+          incoming().ownerEmail.lower() == 'elsonotake@gmail.com'
+        ) &&
         incoming().updatedAt == request.time;
 
       allow delete: if false;

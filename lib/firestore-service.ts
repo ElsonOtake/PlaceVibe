@@ -4,6 +4,8 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  getDocs,
+  writeBatch,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -85,10 +87,29 @@ export function subscribeToPlaces(
 }
 
 // Subscribe to Family Configuration
+const FAMILY_CONFIG_CACHE_KEY = 'placevibe_family_config_cache';
+
+export function getCachedFamilyConfig(): FamilyConfig | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(FAMILY_CONFIG_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as FamilyConfig;
+  } catch {
+    return null;
+  }
+}
+
 export function subscribeToFamilyConfig(
   onSuccess: (config: FamilyConfig | null) => void,
   onError?: (error: unknown) => void
 ) {
+  // If we have a local cache, supply it immediately so UI never flashes restricted
+  const cached = getCachedFamilyConfig();
+  if (cached) {
+    onSuccess(cached);
+  }
+
   const configDocRef = doc(db, 'family_config', 'settings');
   return onSnapshot(
     configDocRef,
@@ -99,7 +120,7 @@ export function subscribeToFamilyConfig(
           data.updatedAt instanceof Timestamp
             ? data.updatedAt.toMillis()
             : Date.now();
-        onSuccess({
+        const configObj: FamilyConfig = {
           id: docSnap.id,
           ownerEmail: data.ownerEmail || PRIMARY_OWNER_EMAIL,
           wifeEmail: data.wifeEmail || '',
@@ -107,14 +128,25 @@ export function subscribeToFamilyConfig(
             ? data.allowedEmails
             : [PRIMARY_OWNER_EMAIL],
           updatedAt,
-        });
+        };
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(FAMILY_CONFIG_CACHE_KEY, JSON.stringify(configObj));
+          } catch {
+            // Ignore storage quota
+          }
+        }
+        onSuccess(configObj);
       } else {
-        onSuccess(null);
+        // Document does not exist yet; if we have cached, keep it, else null
+        if (!cached) {
+          onSuccess(null);
+        }
       }
     },
     (err) => {
       onError?.(err);
-      handleFirestoreError(err, OperationType.GET, 'family_config/settings');
+      console.warn('Family configuration snapshot notice:', err);
     }
   );
 }
@@ -127,14 +159,35 @@ export async function saveFamilyConfig(
   const path = 'family_config/settings';
   try {
     const normalizedWife = wifeEmail.trim().toLowerCase();
-    const normalizedExtras = extraEmails.map((e) => e.trim().toLowerCase()).filter(Boolean);
+    const normalizedExtras = extraEmails
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => Boolean(e) && e.includes('@'));
 
-    const emailSet = new Set<string>([PRIMARY_OWNER_EMAIL]);
+    const emailSet = new Set<string>([PRIMARY_OWNER_EMAIL.toLowerCase()]);
     if (normalizedWife) emailSet.add(normalizedWife);
     normalizedExtras.forEach((e) => emailSet.add(e));
 
     const allowedEmails = Array.from(emailSet);
 
+    // Save to local cache immediately so local UI updates without any delay
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          FAMILY_CONFIG_CACHE_KEY,
+          JSON.stringify({
+            id: 'settings',
+            ownerEmail: PRIMARY_OWNER_EMAIL,
+            wifeEmail: normalizedWife,
+            allowedEmails,
+            updatedAt: Date.now(),
+          })
+        );
+      } catch {
+        // Ignore quota
+      }
+    }
+
+    // 1. Save family_config/settings document
     await setDoc(doc(db, 'family_config', 'settings'), {
       id: 'settings',
       ownerEmail: PRIMARY_OWNER_EMAIL,
@@ -142,17 +195,55 @@ export async function saveFamilyConfig(
       allowedEmails,
       updatedAt: serverTimestamp(),
     });
+
+    // 2. Propagate new allowedEmails to existing places for instant seamless sharing
+    try {
+      const placesSnap = await getDocs(collection(db, 'places'));
+      const batch = writeBatch(db);
+      let count = 0;
+      placesSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const currentAllowed = Array.isArray(data.allowedEmails) ? data.allowedEmails : [];
+        const needsUpdate =
+          allowedEmails.some((e) => !currentAllowed.includes(e)) ||
+          currentAllowed.length !== allowedEmails.length;
+        if (needsUpdate) {
+          batch.update(docSnap.ref, {
+            allowedEmails,
+            updatedAt: serverTimestamp(),
+          });
+          count++;
+        }
+      });
+      if (count > 0) {
+        await batch.commit();
+      }
+    } catch (batchErr) {
+      console.warn('Could not sync allowedEmails across existing places:', batchErr);
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
-// Create Place
+let lastCreatedDocSignature = '';
+let lastCreatedDocTime = 0;
+
 export async function createPlaceDoc(
   entryData: Omit<PlaceEntry, 'id' | 'createdAt' | 'updatedAt'>,
   user: { uid: string; email: string; displayName?: string },
   allowedEmails: string[]
 ) {
+  // Guard against duplicate document creation within 4 seconds with identical signature
+  const signature = `${user.uid}:${entryData.name.trim().toLowerCase()}:${entryData.dateVisited}:${entryData.category}`;
+  const now = Date.now();
+  if (signature === lastCreatedDocSignature && now - lastCreatedDocTime < 4000) {
+    console.warn('createPlaceDoc: Blocked duplicate document creation for signature:', signature);
+    return;
+  }
+  lastCreatedDocSignature = signature;
+  lastCreatedDocTime = now;
+
   const placeId = `pv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const path = `places/${placeId}`;
 

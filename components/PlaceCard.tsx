@@ -15,8 +15,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   ExternalLink,
-  Compass,
 } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n';
 
 interface PlaceCardProps {
   place: PlaceEntry;
@@ -31,20 +31,24 @@ export function PlaceCard({
   onEdit,
   onDelete,
   onDuplicate,
-  onFocusMap,
 }: PlaceCardProps) {
+  const { t, language } = useLanguage();
   const [copied, setCopied] = useState(false);
+
+  const translatedCategory = t.categoryLabels[place.category] || place.category;
 
   const handleCopySummary = () => {
     const text = [
-      `📍 ${place.name} (${place.category})`,
-      place.formattedAddress || place.location ? `Location: ${place.formattedAddress || place.location}` : '',
-      `Rating: ${place.rating}/5.0 | Date: ${place.dateVisited}`,
-      place.googleRating ? `Google Rating: ${place.googleRating}★` : '',
-      `Would Return: ${place.wouldReturn ? 'Yes ✅' : 'No ❌'}`,
-      place.pros.length > 0 ? `Pros:\n${place.pros.map((p) => `  + ${p}`).join('\n')}` : '',
-      place.cons.length > 0 ? `Cons:\n${place.cons.map((c) => `  - ${c}`).join('\n')}` : '',
-      place.notes ? `Notes: ${place.notes}` : '',
+      `📍 ${place.name} (${translatedCategory})`,
+      place.formattedAddress || place.location
+        ? `${language === 'pt-BR' ? 'Endereço' : 'Location'}: ${place.formattedAddress || place.location}`
+        : '',
+      `${language === 'pt-BR' ? 'Nota' : 'Rating'}: ${place.rating}/5.0 | ${language === 'pt-BR' ? 'Data' : 'Date'}: ${place.dateVisited}`,
+      place.googleRating ? `Google: ${place.googleRating}★` : '',
+      `${t.wouldReturnQuestion} ${place.wouldReturn ? (language === 'pt-BR' ? 'Sim ✅' : 'Yes ✅') : (language === 'pt-BR' ? 'Não ❌' : 'No ❌')}`,
+      place.pros.length > 0 ? `${t.highlightsTitle}:\n${place.pros.map((p) => `  + ${p}`).join('\n')}` : '',
+      place.cons.length > 0 ? `${t.considerationsTitle}:\n${place.cons.map((c) => `  - ${c}`).join('\n')}` : '',
+      place.notes ? `${language === 'pt-BR' ? 'Notas' : 'Notes'}: ${place.notes}` : '',
     ]
       .filter(Boolean)
       .join('\n');
@@ -70,10 +74,27 @@ export function PlaceCard({
     );
   }
 
+  const scoreLabelsEn: Record<number, string> = {
+    5: 'Outstanding',
+    4: 'Very Good',
+    3: 'Average',
+    2: 'Disappointing',
+    1: 'Poor',
+  };
+
+  const scoreLabelsPt: Record<number, string> = {
+    5: 'Excelente',
+    4: 'Muito Bom',
+    3: 'Regular',
+    2: 'Abaixo do Esperado',
+    1: 'Ruim',
+  };
+
+  const scoreLabel = language === 'pt-BR' ? scoreLabelsPt[place.rating] : scoreLabelsEn[place.rating];
   const hasCoords = typeof place.latitude === 'number' && typeof place.longitude === 'number';
 
   return (
-    <article className="bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col justify-between space-y-4">
+    <article className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-shadow p-4 sm:p-5 flex flex-col justify-between space-y-4">
       {/* Top Header */}
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3">
@@ -88,17 +109,17 @@ export function PlaceCard({
               {hasCoords && (
                 <span
                   className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/70 px-1.5 py-0.2 rounded font-medium"
-                  title="Pinned on Google Maps"
+                  title="Google Maps"
                 >
                   <MapPin className="w-2.5 h-2.5 text-amber-600" />
-                  <span>Mapped</span>
+                  <span>{language === 'pt-BR' ? 'No Mapa' : 'Mapped'}</span>
                 </span>
               )}
             </div>
 
             {/* Unboxed clean metadata */}
             <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1 flex-wrap">
-              <span className="font-medium text-slate-700">{place.category}</span>
+              <span className="font-medium text-slate-700">{translatedCategory}</span>
               <span aria-hidden="true" className="text-slate-300">·</span>
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-slate-400" />
@@ -124,12 +145,12 @@ export function PlaceCard({
             {place.wouldReturn ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
                 <ThumbsUp className="w-3 h-3 text-emerald-600" />
-                <span>Would Return</span>
+                <span>{t.wouldReturnBadge}</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                 <ThumbsDown className="w-3 h-3 text-slate-500" />
-                <span>Won&apos;t Return</span>
+                <span>{t.wouldNotReturnBadge}</span>
               </span>
             )}
             {place.priceRange && (
@@ -147,16 +168,8 @@ export function PlaceCard({
             <span className="text-xs font-bold text-slate-900 font-mono tabular-nums">
               {place.rating}.0
             </span>
-            <span className="text-[11px] text-slate-400">
-              {place.rating === 5
-                ? 'Outstanding'
-                : place.rating === 4
-                ? 'Very Good'
-                : place.rating === 3
-                ? 'Average'
-                : place.rating === 2
-                ? 'Disappointing'
-                : 'Poor'}
+            <span className="text-[11px] text-slate-400 font-medium">
+              {scoreLabel}
             </span>
           </div>
 
@@ -178,13 +191,13 @@ export function PlaceCard({
       </div>
 
       {/* Card Content: Pros, Cons, Notes */}
-      <div className="space-y-3.5 flex-1">
+      <div className="space-y-3 flex-1">
         {/* Pros */}
         {place.pros && place.pros.length > 0 && (
           <div className="space-y-1.5">
             <div className="text-[10px] font-bold text-emerald-800 tracking-wider uppercase flex items-center gap-1">
               <Check className="w-3 h-3 text-emerald-600" />
-              <span>Good Points</span>
+              <span>{t.highlightsTitle}</span>
             </div>
             <ul className="space-y-1">
               {place.pros.map((pro, idx) => (
@@ -205,7 +218,7 @@ export function PlaceCard({
           <div className="space-y-1.5">
             <div className="text-[10px] font-bold text-rose-800 tracking-wider uppercase flex items-center gap-1">
               <X className="w-3 h-3 text-rose-600" />
-              <span>Could Be Better</span>
+              <span>{t.considerationsTitle}</span>
             </div>
             <ul className="space-y-1">
               {place.cons.map((con, idx) => (
@@ -235,17 +248,17 @@ export function PlaceCard({
           <button
             onClick={handleCopySummary}
             className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-            title="Copy visit summary to clipboard"
+            title="Copiar resumo da visita"
           >
             {copied ? (
               <>
                 <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-600">Copied</span>
+                <span className="text-emerald-600">{language === 'pt-BR' ? 'Copiado' : 'Copied'}</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>Copy</span>
+                <span>{language === 'pt-BR' ? 'Copiar' : 'Copy'}</span>
               </>
             )}
           </button>
@@ -256,7 +269,7 @@ export function PlaceCard({
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 transition-colors font-medium"
-              title="Open spot in Google Maps"
+              title={t.viewOnGoogleMaps}
             >
               <span>Maps</span>
               <ExternalLink className="w-3 h-3" />
@@ -265,7 +278,7 @@ export function PlaceCard({
 
           {(place.createdByName || place.createdByEmail) && (
             <span className="text-[10px] text-slate-400 border-l border-slate-200 pl-2 hidden sm:inline">
-              By {place.createdByName || place.createdByEmail?.split('@')[0]}
+              {t.loggedBy} {place.createdByName || place.createdByEmail?.split('@')[0]}
             </span>
           )}
         </div>
@@ -274,23 +287,23 @@ export function PlaceCard({
           <button
             onClick={() => onDuplicate(place)}
             className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors font-medium cursor-pointer"
-            title="Log another visit to this spot"
+            title={t.duplicate}
           >
-            Log Again
+            {language === 'pt-BR' ? 'Repetir' : 'Log Again'}
           </button>
           <button
             onClick={() => onEdit(place)}
             className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors font-medium flex items-center gap-1 cursor-pointer"
           >
             <Pencil className="w-3 h-3 text-slate-500" />
-            <span>Edit</span>
+            <span>{t.edit}</span>
           </button>
           <button
             onClick={() => onDelete(place.id, place.name)}
             className="px-2.5 py-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors font-medium flex items-center gap-1 cursor-pointer"
           >
             <Trash2 className="w-3 h-3" />
-            <span>Delete</span>
+            <span>{t.delete}</span>
           </button>
         </div>
       </div>

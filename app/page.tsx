@@ -1,7 +1,7 @@
 // Source: Google Maps Platform Code Assist
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, signInWithPopup, signOut, googleProvider } from '@/lib/firebase';
@@ -31,6 +31,7 @@ import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
 import { ExportModal } from '@/components/ExportModal';
 import { FamilySharingModal } from '@/components/FamilySharingModal';
 import { SpotsMapView } from '@/components/SpotsMapView';
+import { useLanguage } from '@/lib/i18n';
 import {
   Plus,
   Coffee,
@@ -46,8 +47,10 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
+  const { t, language } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
   // Firestore Places & Family Config
   const [places, setPlaces] = useState<PlaceEntry[]>([]);
@@ -89,6 +92,11 @@ export default function HomePage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (!currentUser) {
+        setFamilyConfig(null);
+        setPlaces([]);
+        setIsConfigLoaded(false);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -106,23 +114,35 @@ export default function HomePage() {
   // If user is owner or listed in allowed family emails
   const isAuthorized = user !== null && (isOwner || isWife || isWhitelisted);
 
-  // Real-time Subscriptions when authorized
+  // 1. Subscribe to family configuration for ANY authenticated user
+  // This allows family members to receive the config and unlock authorization!
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const unsubConfig = subscribeToFamilyConfig(
+      (cfg) => {
+        setFamilyConfig(cfg);
+        setIsConfigLoaded(true);
+      },
+      (err) => {
+        console.warn('Could not load family config:', err);
+        setIsConfigLoaded(true);
+      }
+    );
+
+    return () => {
+      unsubConfig();
+    };
+  }, [user]);
+
+  // 2. Subscribe to places only when the user is authorized
   useEffect(() => {
     if (!user || !isAuthorized) {
       return;
     }
 
-    // Subscribe to family configuration
-    const unsubConfig = subscribeToFamilyConfig(
-      (cfg) => {
-        setFamilyConfig(cfg);
-      },
-      (err) => {
-        console.error('Failed to load family config:', err);
-      }
-    );
-
-    // Subscribe to places
     const unsubPlaces = subscribeToPlaces(
       (remotePlaces) => {
         setPlaces(remotePlaces);
@@ -135,7 +155,6 @@ export default function HomePage() {
     );
 
     return () => {
-      unsubConfig();
       unsubPlaces();
     };
   }, [user, isAuthorized]);
@@ -155,9 +174,20 @@ export default function HomePage() {
   const handleSignIn = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-      showToast('Signed in successfully!');
+      showToast(t.toastSignedIn);
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Sign in failed');
+      console.error('Sign in error:', err);
+      let message = t.toastSignInFailed;
+      if (err instanceof Error) {
+        if (err.message.includes('popup-blocked')) {
+          message = t.toastPopupBlocked;
+        } else if (err.message.includes('popup-closed-by-user')) {
+          message = t.toastPopupClosed;
+        } else {
+          message = err.message;
+        }
+      }
+      showToast(message);
     }
   };
 
@@ -165,26 +195,66 @@ export default function HomePage() {
     try {
       await signOut(auth);
       setPlaces([]);
-      showToast('Signed out');
+      setIsConfigLoaded(false);
+      showToast(t.toastSignedOut);
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Sign out failed');
+      showToast(err instanceof Error ? err.message : t.toastSignInFailed);
     }
   };
 
-  // Save or Update Entry
+  // Save or Update Entry Concurrency Locks & Deduplication
+  const isSavingEntryRef = useRef(false);
+  const lastSavedEntryRef = useRef<{ name: string; date: string; time: number }>({
+    name: '',
+    date: '',
+    time: 0,
+  });
+
   const handleSaveEntry = async (
     entryData: Omit<PlaceEntry, 'id' | 'createdAt' | 'updatedAt'>,
     existingId?: string
   ) => {
     if (!user) {
-      showToast('Please sign in to save visits');
+      showToast(
+        language === 'pt-BR'
+          ? 'Por favor, conecte-se para salvar visitas'
+          : 'Please sign in to save visits'
+      );
       return;
     }
+
+    // 1. Concurrency lock: prevent duplicate concurrent calls
+    if (isSavingEntryRef.current) {
+      console.warn('Save already in progress, ignoring duplicate trigger');
+      return;
+    }
+
+    // 2. Debounce/Idempotency check: prevent duplicate rapid creation of identical spot
+    const now = Date.now();
+    const cleanName = entryData.name.trim().toLowerCase();
+    if (
+      !existingId &&
+      lastSavedEntryRef.current.name === cleanName &&
+      lastSavedEntryRef.current.date === entryData.dateVisited &&
+      now - lastSavedEntryRef.current.time < 5000
+    ) {
+      console.warn('Prevented duplicate spot creation within 5s:', entryData.name);
+      setIsFormOpen(false);
+      setEditingPlace(null);
+      return;
+    }
+
+    isSavingEntryRef.current = true;
+    lastSavedEntryRef.current = {
+      name: cleanName,
+      date: entryData.dateVisited,
+      time: now,
+    };
 
     try {
       if (existingId) {
         await updatePlaceDoc(existingId, entryData, effectiveAllowedEmails);
-        showToast(`Updated "${entryData.name}"`);
+        showToast(t.toastUpdated(entryData.name));
       } else {
         await createPlaceDoc(
           entryData,
@@ -195,12 +265,22 @@ export default function HomePage() {
           },
           effectiveAllowedEmails
         );
-        showToast(`Logged new visit to "${entryData.name}"`);
+        showToast(t.toastLogged(entryData.name));
       }
       setIsFormOpen(false);
       setEditingPlace(null);
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Failed to save visit');
+      // Reset cache on error so user can retry
+      lastSavedEntryRef.current = { name: '', date: '', time: 0 };
+      showToast(
+        err instanceof Error
+          ? err.message
+          : language === 'pt-BR'
+          ? 'Falha ao salvar visita'
+          : 'Failed to save visit'
+      );
+    } finally {
+      isSavingEntryRef.current = false;
     }
   };
 
@@ -221,9 +301,9 @@ export default function HomePage() {
     if (!deleteTarget) return;
     try {
       await deletePlaceDoc(deleteTarget.id);
-      showToast(`Deleted "${deleteTarget.name}"`);
+      showToast(t.toastDeleted(deleteTarget.name));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Failed to delete entry');
+      showToast(err instanceof Error ? err.message : (language === 'pt-BR' ? 'Falha ao excluir visita' : 'Failed to delete entry'));
     } finally {
       setDeleteTarget(null);
     }
@@ -240,11 +320,11 @@ export default function HomePage() {
           email: user.email || '',
           displayName: user.displayName || undefined,
         },
-        effectiveAllowedEmails
+          effectiveAllowedEmails
       );
-      showToast('Seeded 5 curated sample spots with Google Maps coordinates!');
+      showToast(t.toastSeeded);
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Failed to seed sample spots');
+      showToast(err instanceof Error ? err.message : (language === 'pt-BR' ? 'Falha ao carregar lugares de exemplo' : 'Failed to seed sample spots'));
     } finally {
       setIsSeeding(false);
     }
@@ -354,19 +434,19 @@ export default function HomePage() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8">
           {/* Auth State Handling */}
           {!authLoading && !user && (
-            <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-200/80 rounded-2xl p-6 sm:p-8 text-center space-y-4">
+            <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-200/80 rounded-2xl p-5 sm:p-8 text-center space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center mx-auto shadow-sm">
                 <Heart className="w-6 h-6 fill-white" />
               </div>
               <div className="max-w-xl mx-auto space-y-1.5">
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  Every Visited Spot
+                  {t.signInHeadline}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  Cloud persistence enabled via Firestore with Google Maps location intelligence. Sign in with your Google account ({PRIMARY_OWNER_EMAIL} or your wife&apos;s email) to access, log, and sync your favorite spots in real time.
+                  {t.signInDesc(PRIMARY_OWNER_EMAIL)}
                 </p>
               </div>
               <div className="pt-2">
@@ -375,35 +455,56 @@ export default function HomePage() {
                   className="px-6 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm transition-colors inline-flex items-center gap-2 cursor-pointer"
                 >
                   <LogIn className="w-4 h-4" />
-                  <span>Sign In with Google</span>
+                  <span>{t.signInGoogle}</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* Signed in but NOT authorized */}
-          {!authLoading && user && !isAuthorized && (
-            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 sm:p-8 text-center space-y-4 max-w-2xl mx-auto">
+          {/* Signed in but checking family authorization */}
+          {!authLoading && user && !isAuthorized && !isConfigLoaded && !isOwner && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 text-center space-y-3 max-w-md mx-auto shadow-sm">
+              <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-amber-600 animate-spin mx-auto" />
+              <p className="text-xs font-semibold text-slate-800">{t.verifyingPermissions}</p>
+              <p className="text-[11px] text-slate-500 font-mono truncate">{user.email}</p>
+            </div>
+          )}
+
+          {/* Signed in and checked, but NOT authorized */}
+          {!authLoading && user && !isAuthorized && (isConfigLoaded || isOwner) && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 sm:p-8 text-center space-y-4 max-w-2xl mx-auto">
               <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
                 <ShieldAlert className="w-6 h-6" />
               </div>
               <div className="space-y-2">
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-                  Access Restricted
+                  {t.accessRestricted}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  You are signed in as <span className="font-mono font-semibold text-slate-900">{user.email}</span>. This journal is private for <span className="font-semibold text-slate-900">{PRIMARY_OWNER_EMAIL}</span> and his wife.
+                  {t.signedInAs} <span className="font-mono font-semibold text-slate-900">{user.email}</span>. {t.privateJournalNotice(PRIMARY_OWNER_EMAIL)}
                 </p>
                 <p className="text-xs text-slate-500">
-                  If you are Elson&apos;s wife, ask Elson to open &ldquo;Family Access&rdquo; and add your email address ({user.email}) to the allowed access list.
+                  {t.askOwnerNotice(user.email || '')}
                 </p>
               </div>
-              <div className="pt-2 flex items-center justify-center gap-3">
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (user.email) {
+                      navigator.clipboard.writeText(user.email);
+                      showToast(t.copiedEmail(user.email));
+                    }
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  {t.copyMyEmail}
+                </button>
                 <button
                   onClick={handleSignOut}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-rose-700 bg-rose-100/60 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
                 >
-                  Sign Out / Switch Account
+                  {t.switchAccount}
                 </button>
               </div>
             </div>
@@ -413,51 +514,55 @@ export default function HomePage() {
           {isAuthorized && (
             <>
               {/* Hero Section */}
-              <section className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200/60">
-                        <Coffee className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Family Spot &amp; Visit Journal</span>
+              <section className="space-y-4 sm:space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    {/* Badge Chips */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                      <div className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-medium text-amber-800 bg-amber-50 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md border border-amber-200/60">
+                        <Coffee className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600" />
+                        <span className="hidden sm:inline">{t.badgeJournalFull}</span>
+                        <span className="sm:hidden">{t.badgeJournalShort}</span>
                       </div>
 
-                      <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200/60">
-                        <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Google Maps Intelligence</span>
+                      <div className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-medium text-blue-800 bg-blue-50 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md border border-blue-200/60">
+                        <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" />
+                        <span className="hidden sm:inline">{t.badgeMapsFull}</span>
+                        <span className="sm:hidden">{t.badgeMapsShort}</span>
                       </div>
 
-                      <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/60">
-                        <CloudCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Live Cloud Database</span>
+                      <div className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-medium text-emerald-800 bg-emerald-50 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md border border-emerald-200/60">
+                        <CloudCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600" />
+                        <span className="hidden sm:inline">{t.badgeCloudFull}</span>
+                        <span className="sm:hidden">{t.badgeCloudShort}</span>
                       </div>
 
                       {familyConfig?.wifeEmail && (
                         <div className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/60">
                           <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
-                          <span>Shared with {familyConfig.wifeEmail}</span>
+                          <span>{t.sharedWith(familyConfig.wifeEmail)}</span>
                         </div>
                       )}
                     </div>
 
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">
-                      Every Visited Spot
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
+                      {t.heroHeadline}
                     </h1>
-                    <p className="text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
-                      Synced in real time across devices. Search any spot on Google Maps to pre-fill addresses, categories, and ratings, rate the personal vibe, and map your shared favorite places.
+                    <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
+                      {t.heroSubtitle}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 pt-1 sm:pt-0">
                     <button
                       onClick={() => {
                         setEditingPlace(null);
                         setIsFormOpen(true);
                       }}
-                      className="px-4 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                      className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
-                      <span>Log New Visit</span>
+                      <span>{t.logNewVisit}</span>
                     </button>
                   </div>
                 </div>
@@ -471,10 +576,10 @@ export default function HomePage() {
                 <div className="p-6 bg-amber-50/70 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="space-y-1 text-center sm:text-left">
                     <h3 className="text-sm font-bold text-slate-900">
-                      Your cloud journal is currently empty
+                      {t.emptyJournalTitle}
                     </h3>
                     <p className="text-xs text-slate-600">
-                      Would you like to populate 5 curated starter spots (Blue Bottle Coffee, Livraria Cultura, Osteria Stella, etc.) with coordinates on Google Maps?
+                      {t.emptyJournalDesc}
                     </p>
                   </div>
                   <button
@@ -483,7 +588,7 @@ export default function HomePage() {
                     className="px-4 py-2 text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin' : ''}`} />
-                    <span>{isSeeding ? 'Loading Spots...' : 'Populate 5 Starter Spots'}</span>
+                    <span>{isSeeding ? t.seeding : t.populateStarterSpots}</span>
                   </button>
                 </div>
               )}
@@ -511,11 +616,7 @@ export default function HomePage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Visits (
-                      <span className="font-mono tabular-nums text-slate-700">
-                        {filteredPlaces.length}
-                      </span>
-                      )
+                      {t.visitsTitle(filteredPlaces.length)}
                     </h2>
 
                     {hasActiveFilters && (
@@ -523,7 +624,7 @@ export default function HomePage() {
                         onClick={handleResetFilters}
                         className="text-xs text-amber-700 hover:text-amber-800 font-medium cursor-pointer"
                       >
-                        Show all {places.length} spots
+                        {t.showAllSpots(places.length)}
                       </button>
                     )}
                   </div>
@@ -539,7 +640,7 @@ export default function HomePage() {
                       }`}
                     >
                       <LayoutGrid className="w-3.5 h-3.5" />
-                      <span>Grid View</span>
+                      <span>{t.gridView}</span>
                     </button>
                     <button
                       onClick={() => setViewMode('map')}
@@ -550,7 +651,7 @@ export default function HomePage() {
                       }`}
                     >
                       <MapIcon className="w-3.5 h-3.5" />
-                      <span>Map View</span>
+                      <span>{t.mapView}</span>
                     </button>
                   </div>
                 </div>
@@ -590,13 +691,15 @@ export default function HomePage() {
                     </div>
                     <h3 className="text-base font-bold text-slate-900">
                       {places.length === 0
-                        ? 'No spots recorded yet'
-                        : 'No matching places found'}
+                        ? t.noSpotsYet
+                        : t.noMatchingSpots}
                     </h3>
                     <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
                       {places.length === 0
-                        ? 'Log a cafe, restaurant, or bookstore visit with Google Maps to start building your shared journal.'
-                        : 'Try adjusting your search terms or clearing the selected filters.'}
+                        ? t.logFirstSpot
+                        : (language === 'pt-BR'
+                            ? 'Tente ajustar os termos de busca ou limpar os filtros selecionados.'
+                            : 'Try adjusting your search terms or clearing the selected filters.')}
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-2">
                       {hasActiveFilters ? (
@@ -629,7 +732,7 @@ export default function HomePage() {
         <footer className="mt-auto border-t border-slate-200 bg-white py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>
-              Every Visited Spot — Private Cloud Journal for Elson &amp; Wife. Stored securely in Firestore with Google Maps location intelligence.
+              Every Visited Spot — Private Cloud Journal for Elson &amp; Family. Stored securely in Firestore with Google Maps location intelligence.
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -690,13 +793,16 @@ export default function HomePage() {
         />
 
         {/* Family Sharing Modal */}
-        <FamilySharingModal
-          isOpen={isFamilySharingOpen}
-          onClose={() => setIsFamilySharingOpen(false)}
-          config={familyConfig}
-          currentUserEmail={userEmail}
-          onSuccessToast={showToast}
-        />
+        {isFamilySharingOpen && (
+          <FamilySharingModal
+            key={`${isFamilySharingOpen}-${familyConfig?.wifeEmail || ''}-${familyConfig?.updatedAt || 0}`}
+            isOpen={isFamilySharingOpen}
+            onClose={() => setIsFamilySharingOpen(false)}
+            config={familyConfig}
+            currentUserEmail={userEmail}
+            onSuccessToast={showToast}
+          />
+        )}
 
         {/* Toast Notification */}
         {toastMessage && (
